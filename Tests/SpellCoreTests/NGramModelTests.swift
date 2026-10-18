@@ -43,6 +43,13 @@ import Testing
         #expect(m.count("neexistuje") == 0)
     }
 
+    @Test func decomposedLookupsMatchComposedCorpus() throws {
+        let m = try Self.model()
+        let mam = "mám".decomposedStringWithCanonicalMapping
+        #expect(m.count(mam) == m.count("mám"))
+        #expect(m.count(mam, "práci".decomposedStringWithCanonicalMapping) == 3)
+    }
+
     @Test func minCountDropsRareEntries() throws {
         let m = try Self.model(minCount: 2)
         #expect(m.count("mám", "práci") == 3)

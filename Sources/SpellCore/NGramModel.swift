@@ -51,9 +51,12 @@ public final class NGramModel: LanguageModelScoring {
 
     static func key(_ a: String, _ b: String) -> UInt64 { hash(a + "\u{1}" + b) }
 
-    public func count(_ word: String) -> UInt32 { lookup(Self.hash(word)) }
+    // Keys hash raw UTF-8 of the NFC corpus, so decomposed input must be composed first.
+    public func count(_ word: String) -> UInt32 { lookup(Self.hash(word.precomposedStringWithCanonicalMapping)) }
 
-    public func count(_ a: String, _ b: String) -> UInt32 { lookup(Self.key(a, b)) }
+    public func count(_ a: String, _ b: String) -> UInt32 {
+        lookup(Self.key(a.precomposedStringWithCanonicalMapping, b.precomposedStringWithCanonicalMapping))
+    }
 
     private func lookup(_ key: UInt64) -> UInt32 {
         data.withUnsafeBytes { raw in

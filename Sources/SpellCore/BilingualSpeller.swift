@@ -55,6 +55,8 @@ public final class BilingualSpeller {
     }
 
     public func misspellings(in text: String) -> [NSRange] {
+        // Evict before the check, so the words it flags keep their context until the next one.
+        if contextByWord.count >= Self.maxRememberedContexts { contextByWord.removeAll() }
         let ns = text as NSString
         let tokens = NGramTokenizer.tokens(in: text)
         let tokenAt = Dictionary(tokens.indices.map { (tokens[$0].range.location, $0) }, uniquingKeysWith: { a, _ in a })
@@ -133,7 +135,6 @@ public final class BilingualSpeller {
     /// overwrite the sentence context remembered from the full check.
     private func remember(_ word: String, _ context: WordContext) {
         if context.left == nil, context.right == nil, contextByWord[word] != nil { return }
-        if contextByWord.count > Self.maxRememberedContexts { contextByWord.removeAll() }
         contextByWord[word] = context
     }
 

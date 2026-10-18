@@ -1,15 +1,21 @@
 import Foundation
 
+public enum LearnedWordsError: Error {
+    /// The store exists but could not be read, so saving would overwrite the words in it.
+    case storeUnreadable
+}
+
 /// User-learned words: our own newline-separated store plus read-only sources such as
 /// macOS's ~/Library/Spelling/LocalDictionary.
 public final class LearnedWords {
     private let storeURL: URL
+    private let storeWritable: Bool
     private var own: Set<String>
     private var readOnly: Set<String>
 
     public init(storeURL: URL, readOnlySources: [URL]) throws {
         self.storeURL = storeURL
-        own = Self.load(storeURL)
+        (own, storeWritable) = Self.loadStore(storeURL)
         readOnly = readOnlySources.reduce(into: Set<String>()) { $0.formUnion(Self.load($1)) }
     }
 
@@ -34,14 +40,31 @@ public final class LearnedWords {
     }
 
     private func save() throws {
+        guard storeWritable else { throw LearnedWordsError.storeUnreadable }
         try FileManager.default.createDirectory(
             at: storeURL.deletingLastPathComponent(), withIntermediateDirectories: true
         )
         try (own.sorted().joined(separator: "\n") + "\n").write(to: storeURL, atomically: true, encoding: .utf8)
     }
 
+    /// A missing store is empty and writable; one that exists but can't be read or decoded stays untouched.
+    private static func loadStore(_ url: URL) -> (Set<String>, writable: Bool) {
+        do {
+            guard let text = String(data: try Data(contentsOf: url), encoding: .utf8) else { return ([], false) }
+            return (words(in: text), true)
+        } catch CocoaError.fileReadNoSuchFile {
+            return ([], true)
+        } catch {
+            return ([], false)
+        }
+    }
+
     private static func load(_ url: URL) -> Set<String> {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
-        return Set(text.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.isEmpty })
+        return words(in: text)
+    }
+
+    private static func words(in text: String) -> Set<String> {
+        Set(text.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.isEmpty })
     }
 }

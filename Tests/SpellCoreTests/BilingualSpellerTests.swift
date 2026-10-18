@@ -113,6 +113,14 @@ import Testing
         #expect(speller.guesses(for: "praci").first == "prací")
     }
 
+    @Test func contextEvictionNeverDropsWordsFromTheSameCheck() {
+        let letters = "bfghjklmnpqrstvwxz".map(String.init)
+        let junk = letters.flatMap { a in letters.flatMap { b in letters.map { c in "qxj" + a + b + c } } }.prefix(2000)
+        #expect(flagged(junk.joined(separator: " ")).count == 2000)
+        _ = speller.misspellings(in: "Jsem spokojen s praci, nevim.")
+        #expect(speller.guesses(for: "praci").first == "prací")
+    }
+
     @Test func accentRestorationBeatsRealEditFavouredByContext() {
         _ = speller.misspellings(in: "Dneska nevim jestli zitra prijdu.")
         #expect(speller.guesses(for: "prijdu").first == "přijdu")
@@ -204,6 +212,16 @@ import Testing
 
     @Test func acceptsDecomposedText() {
         #expect(flagged("Příliš žluťoučký kůň úpěl ďábelské ódy.".decomposedStringWithCanonicalMapping).isEmpty)
+    }
+
+    @Test(arguments: ["Mám rad kafe.", "To je dobrý nápad, který jsi mel.", "Jsem spokojený s praci."])
+    func decomposedTextKeepsSentenceContext(_ sentence: String) {
+        let decomposed = sentence.decomposedStringWithCanonicalMapping
+        #expect(flagged(decomposed) == flagged(sentence))
+        let word = flagged(sentence).last ?? ""
+        let composedGuesses = speller.guesses(for: word)
+        _ = speller.misspellings(in: decomposed)
+        #expect(speller.guesses(for: word) == composedGuesses)
     }
 }
 

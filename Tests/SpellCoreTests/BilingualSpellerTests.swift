@@ -161,18 +161,38 @@ import Testing
 
     @Test func learnedWordIsAcceptedAndForgettable() throws {
         #expect(flagged("Ahoj Bflmpsvz") == ["Bflmpsvz"])
-        speller.learn("Bflmpsvz")
+        try speller.learn("Bflmpsvz")
         #expect(flagged("Ahoj Bflmpsvz").isEmpty)
         let reloaded = try LearnedWords(storeURL: learnedFile, readOnlySources: [])
         #expect(reloaded.contains("Bflmpsvz"))
-        speller.forget("Bflmpsvz")
+        try speller.forget("Bflmpsvz")
         #expect(flagged("Ahoj Bflmpsvz") == ["Bflmpsvz"])
     }
 
-    @Test func learnedWordIsNotFlaggedForMissingAccents() {
+    @Test func learnedWordIsNotFlaggedForMissingAccents() throws {
         #expect(flagged("Nemam cas, zavolam ti zitra.").contains("cas"))
-        speller.learn("cas")
+        try speller.learn("cas")
         #expect(!flagged("Nemam cas, zavolam ti zitra.").contains("cas"))
+    }
+
+    @Test func learnReportsAStoreThatCannotBeWritten() throws {
+        let unwritable = try BilingualSpeller(
+            dictionaryDirectory: Self.dictionaries,
+            learnedWords: LearnedWords(storeURL: URL(fileURLWithPath: "/dev/null/learned.txt"), readOnlySources: [])
+        )
+        #expect(throws: (any Error).self) { try unwritable.learn("bflmpsvz") }
+    }
+
+    @Test func lowercaseLearnedWordIsAcceptedCapitalized() throws {
+        try speller.learn("bflmpsvz")
+        #expect(flagged("Bflmpsvz je super.").isEmpty)
+        try speller.learn("cas")
+        #expect(!flagged("Cas je dobrý.").contains("Cas"))
+    }
+
+    @Test func capitalizedLearnedWordIsNotAcceptedLowercase() throws {
+        try speller.learn("Bflmpsvz")
+        #expect(flagged("ahoj bflmpsvz") == ["bflmpsvz"])
     }
 
     @Test func lowercaseProperNounGetsCapitalizedGuess() {

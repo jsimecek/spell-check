@@ -120,12 +120,13 @@ public final class BilingualSpeller {
             .map { Candidate(text: capitalized, language: $0.key, source: .capitalization) }
     }
 
-    public func learn(_ word: String) {
-        try? learned.add(word)
+    /// Throws when the store cannot be saved; the word still counts as learned until restart.
+    public func learn(_ word: String) throws {
+        try learned.add(word)
     }
 
-    public func forget(_ word: String) {
-        try? learned.remove(word)
+    public func forget(_ word: String) throws {
+        try learned.remove(word)
     }
 
     /// Text views re-check the bare selected word before showing the menu; that must not

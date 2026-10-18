@@ -42,6 +42,8 @@ public struct NativeGuessResponse: Codable, Sendable {
 public final class NativeGuessClient: NativeGuessProviding, @unchecked Sendable {
     static let maxCachedWords = 2000
     static let maxPendingWords = 100
+    // No real cs/en word is longer; with maxPendingWords this keeps in-flight requests under the 16 KB pipe buffer.
+    static let maxWordLength = 48
 
     private let executable: URL
     private let arguments: [String]
@@ -67,17 +69,20 @@ public final class NativeGuessClient: NativeGuessProviding, @unchecked Sendable 
     public func prefetch(_ words: [String]) {
         lock.lock()
         defer { lock.unlock() }
-        let wanted = words.filter { cache[$0] == nil && !pending.contains($0) }
+        let wanted = words.filter {
+            $0.utf16.count <= Self.maxWordLength && cache[$0] == nil && !pending.contains($0)
+        }
         // runningInput() first: restarting a dead helper is what clears a full `pending`.
         guard !wanted.isEmpty, let input = runningInput(), pending.count < Self.maxPendingWords else { return }
         var data = Data()
-        for word in wanted.prefix(Self.maxPendingWords - pending.count) {
-            guard let line = try? JSONEncoder().encode(NativeGuessRequest(word: word)) else { continue }
+        for word in wanted where pending.count < Self.maxPendingWords {
+            guard !pending.contains(word), let line = try? JSONEncoder().encode(NativeGuessRequest(word: word)) else {
+                continue
+            }
             data.append(line)
             data.append(UInt8(ascii: "\n"))
             pending.insert(word)
         }
-        // Pipe writes this small do not block while the helper keeps reading.
         do { try input.write(contentsOf: data) } catch { stop() }
     }
 

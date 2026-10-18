@@ -97,7 +97,7 @@ public final class NGramModel: LanguageModelScoring {
             let text = line.firstIndex(of: "\t").map { String(line[line.index(after: $0)...]) } ?? line
             let tokens = NGramTokenizer.tokens(in: text)
             if skipUnaccentedSentences, tokens.count >= minUnaccentedSentenceTokens,
-               text.unicodeScalars.allSatisfy({ $0.isASCII }) { continue }
+               text.folding(options: .diacriticInsensitive, locale: nil) == text { continue }
             for (index, token) in tokens.enumerated() {
                 total += 1
                 counts[hash(token.word), default: 0] += 1

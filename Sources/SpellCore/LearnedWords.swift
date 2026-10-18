@@ -13,8 +13,11 @@ public final class LearnedWords {
         readOnly = readOnlySources.reduce(into: Set<String>()) { $0.formUnion(Self.load($1)) }
     }
 
+    /// Like Hunspell, a word learned in lowercase is also accepted with an initial capital, not the reverse.
     public func contains(_ word: String) -> Bool {
-        own.contains(word) || readOnly.contains(word)
+        if own.contains(word) || readOnly.contains(word) { return true }
+        let uncapitalized = word.prefix(1).lowercased() + word.dropFirst()
+        return uncapitalized != word && (own.contains(uncapitalized) || readOnly.contains(uncapitalized))
     }
 
     public var all: Set<String> { own.union(readOnly) }

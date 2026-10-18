@@ -64,6 +64,13 @@ import Testing
         #expect(m.count("ano") == 1)  // too short to judge, kept
     }
 
+    @Test func nonASCIIPunctuationDoesNotMakeASentenceAccented() throws {
+        let lines = ["1\t„Mam rad kafe,“ rekl.", "2\tMam rad caj – rekl.", "3\tMám rád kafe."]
+        let m = try NGramModel(data: NGramModel.build(lines: lines, minCount: 1, skipUnaccentedSentences: true))
+        #expect(m.count("mam", "rad") == 0)
+        #expect(m.count("mám", "rád") == 1)
+    }
+
     @Test func rejectsCorruptData() {
         #expect(throws: (any Error).self) { try NGramModel(data: Data("nope".utf8)) }
     }

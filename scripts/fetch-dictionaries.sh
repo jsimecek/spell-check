@@ -30,6 +30,8 @@ for entry in "${FILES[@]}"; do
   mv "$file.tmp" "$file"
 done
 LEIPZIG="https://downloads.wortschatz-leipzig.de/corpora"
+# Bump when ngram-build output changes for the same corpus and options.
+MODEL_REV=2
 CORPORA=(
   "cs ces-cz_web-public_2019_1M f1ef7a5b76fc0db58a926f612c533b0cd3d75d5b64b649eebb9fdcbf2b6fde66 2 --skip-unaccented"
   "en eng-com_web-public_2018_1M de8849fe30c7d5bf3502f620093232f4dceca10a6ac19a9ad49f474b62df0a5f 2"
@@ -38,7 +40,7 @@ for entry in "${CORPORA[@]}"; do
   read -r lang corpus sha options <<<"$entry"
   model="$DEST/$lang.ngram"
   # Rebuild when the build options change; the sidecar records what the model was built with.
-  [[ -f "$model" && "$(cat "$model.options" 2>/dev/null)" == "$corpus $options" ]] && continue
+  [[ -f "$model" && "$(cat "$model.options" 2>/dev/null)" == "$corpus $options rev$MODEL_REV" ]] && continue
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   echo "Building $model from $corpus (~200 MB download)..."
@@ -49,7 +51,7 @@ for entry in "${CORPORA[@]}"; do
   # shellcheck disable=SC2086
   .build/release/ngram-build "$tmp/$corpus/$corpus-sentences.txt" "$model.tmp" $options
   mv "$model.tmp" "$model"
-  echo "$corpus $options" > "$model.options"
+  echo "$corpus $options rev$MODEL_REV" > "$model.options"
   rm -rf "$tmp"
 done
 

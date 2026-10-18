@@ -58,10 +58,16 @@ final class SpellServerDelegate: NSObject, NSSpellServerDelegate {
     }
 
     func spellServer(_ sender: NSSpellServer, didLearnWord word: String, inLanguage language: String) {
-        speller.learn(word)
+        do { try speller.learn(word) } catch { logSaveFailure("learn", error) }
     }
 
     func spellServer(_ sender: NSSpellServer, didForgetWord word: String, inLanguage language: String) {
-        speller.forget(word)
+        do { try speller.forget(word) } catch { logSaveFailure("forget", error) }
+    }
+
+    /// Domain and code only, so no file paths or user text reach the log.
+    private func logSaveFailure(_ action: String, _ error: Error) {
+        let error = error as NSError
+        log.error("\(action, privacy: .public): saving learned words failed: \(error.domain, privacy: .public) \(error.code)")
     }
 }

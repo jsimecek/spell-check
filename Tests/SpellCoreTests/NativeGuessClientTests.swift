@@ -40,6 +40,13 @@ import Testing
         #expect(c.cachedGuesses(for: "word0") == nil)
     }
 
+    @Test func prefetchNeverBlocksOnOverlongWords() {
+        let c = client("sleep 5")  // never reads stdin, so a full pipe would block the write
+        let start = Date()
+        c.prefetch((0..<NativeGuessClient.maxPendingWords).map { String(repeating: "a", count: 2000) + "\($0)" })
+        #expect(Date().timeIntervalSince(start) < 0.1)
+    }
+
     @Test func restartsHelperThatExited() {
         // Answers one request, then exits.
         let c = client(#"""

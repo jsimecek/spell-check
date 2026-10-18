@@ -75,6 +75,7 @@ public final class NGramModel: LanguageModelScoring {
     }
 
     /// Stupid backoff: bigram relative frequency when seen, otherwise 0.4 × unigram probability.
+    /// A phrase ("v práci") is scored word by word as a chain.
     public func contextScore(_ word: String, left: String?, right: String?) -> Double {
         let total = Double(max(totalTokens, 1))
         func unigram(_ w: String) -> Double { (Double(count(w)) + 0.1) / total }
@@ -83,8 +84,12 @@ public final class NGramModel: LanguageModelScoring {
             guard pair > 0 else { return Self.backoff * unigram(w) }
             return Double(pair) / Double(max(count(previous), pair))
         }
-        var score = left.map { log(conditional(word, after: $0)) } ?? log(unigram(word))
-        if let right { score += log(conditional(right, after: word)) }
+        var previous = left
+        var score = 0.0
+        for part in word.split(separator: " ").map(String.init) + (right.map { [$0] } ?? []) {
+            score += log(previous.map { conditional(part, after: $0) } ?? unigram(part))
+            previous = part
+        }
         return score
     }
 

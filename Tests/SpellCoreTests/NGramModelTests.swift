@@ -63,6 +63,12 @@ import Testing
         #expect(m.contextScore("tě", left: "prosím", right: nil) > m.contextScore("té", left: "prosím", right: nil))
     }
 
+    @Test func phraseIsScoredByItsBigrams() throws {
+        let m = try Self.model()
+        #expect(m.contextScore("mám práci", left: nil, right: nil) > m.contextScore("mám prací", left: nil, right: nil))
+        #expect(m.contextScore("s prací", left: "spokojený", right: nil) > m.contextScore("sprací", left: "spokojený", right: nil))
+    }
+
     @Test func canSkipSentencesTypedWithoutAccents() throws {
         let lines = ["1\tMam rad kafe a caj.", "2\tMám rád kafe.", "3\tAno."]
         let m = try NGramModel(data: NGramModel.build(lines: lines, minCount: 1, skipUnaccentedSentences: true))

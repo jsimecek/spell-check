@@ -6,18 +6,26 @@ public enum LearnedWordsError: Error {
 }
 
 /// User-learned words: our own newline-separated store plus read-only sources such as
-/// macOS's ~/Library/Spelling/LocalDictionary.
+/// macOS's ~/Library/Spelling/LocalDictionary. Read-only words the user forgot are kept in
+/// the store as "!word" lines so they stay forgotten.
 public final class LearnedWords {
     private let storeURL: URL
     private let storeWritable: Bool
     private var own: Set<String>
+    private var forgotten: Set<String>
     private var readOnly: Set<String>
 
     public init(storeURL: URL, readOnlySources: [URL]) throws {
         self.storeURL = storeURL
-        (own, storeWritable) = Self.loadStore(storeURL)
+        let store = Self.loadStore(storeURL)
+        storeWritable = store.writable
+        own = store.words.filter { !$0.hasPrefix(Self.forgottenMarker) }
+        forgotten = Set(store.words.filter { $0.hasPrefix(Self.forgottenMarker) }.map { String($0.dropFirst()) })
         readOnly = readOnlySources.reduce(into: Set<String>()) { $0.formUnion(Self.load($1)) }
+            .subtracting(forgotten)
     }
+
+    private static let forgottenMarker = "!"
 
     /// Like Hunspell, a word learned in lowercase is also accepted with an initial capital, not the reverse.
     public func contains(_ word: String) -> Bool {
@@ -29,13 +37,18 @@ public final class LearnedWords {
     public var all: Set<String> { own.union(readOnly) }
 
     public func add(_ word: String) throws {
-        guard own.insert(word).inserted else { return }
+        let inserted = own.insert(word).inserted
+        guard forgotten.remove(word) != nil || inserted else { return }
         try save()
     }
 
+    /// Forgetting "Foo" forgets the learned "foo" that made it acceptable.
     public func remove(_ word: String) throws {
-        readOnly.remove(word)
-        guard own.remove(word) != nil else { return }
+        let uncapitalized = word.prefix(1).lowercased() + word.dropFirst()
+        let stored = own.contains(word) || readOnly.contains(word) ? word : uncapitalized
+        let removedOwn = own.remove(stored) != nil
+        if readOnly.remove(stored) != nil { forgotten.insert(stored) }
+        else if !removedOwn { return }
         try save()
     }
 
@@ -44,11 +57,12 @@ public final class LearnedWords {
         try FileManager.default.createDirectory(
             at: storeURL.deletingLastPathComponent(), withIntermediateDirectories: true
         )
-        try (own.sorted().joined(separator: "\n") + "\n").write(to: storeURL, atomically: true, encoding: .utf8)
+        let lines = own.sorted() + forgotten.sorted().map { Self.forgottenMarker + $0 }
+        try (lines.joined(separator: "\n") + "\n").write(to: storeURL, atomically: true, encoding: .utf8)
     }
 
     /// A missing store is empty and writable; one that exists but can't be read or decoded stays untouched.
-    private static func loadStore(_ url: URL) -> (Set<String>, writable: Bool) {
+    private static func loadStore(_ url: URL) -> (words: Set<String>, writable: Bool) {
         do {
             guard let text = String(data: try Data(contentsOf: url), encoding: .utf8) else { return ([], false) }
             return (words(in: text), true)

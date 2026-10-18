@@ -10,6 +10,8 @@ public final class BilingualSpeller {
     private let nativeGuesses: NativeGuessProviding?
     // NSSpellServer asks for guesses without the sentence, so remember where each flagged word came from.
     private var contextByWord: [String: WordContext] = [:]
+    // Evicted generation, still consulted so eviction never drops the last check's context.
+    private var previousContextByWord: [String: WordContext] = [:]
     private var restorationCache: [String: [String]] = [:]
     private static let maxRememberedContexts = 2000
     private static let maxCachedRestorations = 5000
@@ -56,7 +58,10 @@ public final class BilingualSpeller {
 
     public func misspellings(in text: String) -> [NSRange] {
         // Evict before the check, so the words it flags keep their context until the next one.
-        if contextByWord.count >= Self.maxRememberedContexts { contextByWord.removeAll() }
+        if contextByWord.count >= Self.maxRememberedContexts {
+            previousContextByWord = contextByWord
+            contextByWord.removeAll()
+        }
         let ns = text as NSString
         let tokens = NGramTokenizer.tokens(in: text)
         let tokenAt = Dictionary(tokens.indices.map { (tokens[$0].range.location, $0) }, uniquingKeysWith: { a, _ in a })
@@ -91,7 +96,7 @@ public final class BilingualSpeller {
 
     /// `context` nil means: use what the last check remembered about this word.
     public func guesses(for word: String, context explicit: WordContext? = nil) -> [String] {
-        let context = explicit ?? contextByWord[word]
+        let context = explicit ?? rememberedContext(of: word)
             ?? WordContext(language: LanguageDetector.detect(word), left: nil, right: nil)
         var candidates: [Candidate] = []
         if let native = nativeGuesses?.cachedGuesses(for: word) {
@@ -101,7 +106,7 @@ public final class BilingualSpeller {
             nativeGuesses?.prefetch([word])
         }
         for (language, dictionary) in dictionaries {
-            candidates += dictionary.suggestions(for: word).filter(Self.isUsefulSuggestion)
+            candidates += dictionary.suggestions(for: word).filter { Self.isUsefulSuggestion($0, in: language) }
                 .map { Candidate(text: $0, language: language, source: .hunspell) }
             candidates += (frequencies[language]?.neighbors(of: word, maxDistance: Self.neighborDistance) ?? [])
                 .filter(dictionary.isCorrect)
@@ -114,12 +119,19 @@ public final class BilingualSpeller {
         return ContextRanker.rank(word: word, candidates: candidates, context: context, models: models)
     }
 
-    /// "monday" -> "Monday": a rejected lowercase word whose capitalized form a dictionary accepts.
+    /// "monday" -> "Monday", "usa" -> "USA": a rejected lowercase word whose capitalized form a dictionary accepts.
+    /// Hunspell accepts any word in all caps, so all caps is offered only when "Usa" is rejected,
+    /// and only without an accent fix, so "cas" gets "čas", not "CAS".
     private func capitalizationFixes(of word: String) -> [Candidate] {
         guard word == word.lowercased(), !isCorrect(word) else { return [] }
         let capitalized = word.prefix(1).uppercased() + word.dropFirst()
-        return dictionaries.filter { $0.value.isCorrect(capitalized) }
-            .map { Candidate(text: capitalized, language: $0.key, source: .capitalization) }
+        func fixes(_ form: String) -> [Candidate] {
+            dictionaries.filter { $0.value.isCorrect(form) }
+                .map { Candidate(text: form, language: $0.key, source: .capitalization) }
+        }
+        let capitalizedFixes = fixes(capitalized)
+        guard capitalizedFixes.isEmpty, czechRestorations(of: word).isEmpty else { return capitalizedFixes }
+        return fixes(word.uppercased())
     }
 
     /// Throws when the store cannot be saved; the word still counts as learned until restart.
@@ -134,8 +146,12 @@ public final class BilingualSpeller {
     /// Text views re-check the bare selected word before showing the menu; that must not
     /// overwrite the sentence context remembered from the full check.
     private func remember(_ word: String, _ context: WordContext) {
-        if context.left == nil, context.right == nil, contextByWord[word] != nil { return }
+        if context.left == nil, context.right == nil, rememberedContext(of: word) != nil { return }
         contextByWord[word] = context
+    }
+
+    private func rememberedContext(of word: String) -> WordContext? {
+        contextByWord[word] ?? previousContextByWord[word]
     }
 
     private func czechRestorations(of word: String) -> [String] {
@@ -203,8 +219,15 @@ public final class BilingualSpeller {
         return result
     }
 
-    /// Hunspell sometimes proposes splits like "nevi m"; single-letter parts are noise.
-    private static func isUsefulSuggestion(_ suggestion: String) -> Bool {
-        !suggestion.split(separator: " ").contains { $0.count == 1 }
+    /// Hunspell sometimes proposes splits like "nevi m"; single-letter parts are noise unless they are
+    /// real words ("v práci", "a lot").
+    private static func isUsefulSuggestion(_ suggestion: String, in language: Language) -> Bool {
+        let words = oneLetterWords[language] ?? []
+        return !suggestion.split(separator: " ").contains { $0.count == 1 && !words.contains($0) }
     }
+
+    private static let oneLetterWords: [Language: Set<Substring>] = [
+        .czech: ["a", "i", "k", "o", "s", "u", "v", "z", "A", "I", "K", "O", "S", "U", "V", "Z"],
+        .english: ["a", "A", "I"],
+    ]
 }

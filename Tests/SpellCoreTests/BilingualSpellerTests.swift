@@ -121,6 +121,14 @@ import Testing
         #expect(speller.guesses(for: "praci").first == "prací")
     }
 
+    @Test func contextEvictionOnBareRecheckKeepsLastCheck() {
+        let letters = "bfghjklmnpqrstvwxz".map(String.init)
+        let junk = letters.flatMap { a in letters.flatMap { b in letters.map { c in "qxj" + a + b + c } } }.prefix(2000)
+        _ = speller.misspellings(in: junk.joined(separator: " ") + ". Jsem spokojen s praci, nevim.")
+        _ = speller.misspellings(in: "praci")
+        #expect(speller.guesses(for: "praci").first == "prací")
+    }
+
     @Test func accentRestorationBeatsRealEditFavouredByContext() {
         _ = speller.misspellings(in: "Dneska nevim jestli zitra prijdu.")
         #expect(speller.guesses(for: "prijdu").first == "přijdu")
@@ -167,6 +175,11 @@ import Testing
         #expect(!speller.guesses(for: "nevim", context: Self.czech).contains { $0.contains(" ") })
     }
 
+    @Test func keepsSplitGuessesWithOneLetterWords() {
+        #expect(speller.guesses(for: "vpráci", context: Self.czech).contains("v práci"))
+        #expect(speller.guesses(for: "alot", context: Self.english).contains("a lot"))
+    }
+
     @Test func learnedWordIsAcceptedAndForgettable() throws {
         #expect(flagged("Ahoj Bflmpsvz") == ["Bflmpsvz"])
         try speller.learn("Bflmpsvz")
@@ -208,6 +221,13 @@ import Testing
         #expect(speller.guesses(for: "monday", context: Self.english).first == "Monday")
         #expect(speller.guesses(for: "praha", context: Self.czech).first == "Praha")
         #expect(!speller.guesses(for: "cas", context: Self.czech).contains("Cas"))
+    }
+
+    @Test func lowercaseAcronymGetsAllCapsGuess() {
+        #expect(flagged("Jedu do usa.") == ["usa"])
+        #expect(speller.guesses(for: "usa", context: Self.czech).first == "USA")
+        #expect(speller.guesses(for: "čr", context: Self.czech).contains("ČR"))
+        #expect(!speller.guesses(for: "cas", context: Self.czech).contains("CAS"))
     }
 
     @Test func acceptsDecomposedText() {

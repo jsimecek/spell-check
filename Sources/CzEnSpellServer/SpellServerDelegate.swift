@@ -41,12 +41,13 @@ final class SpellServerDelegate: NSObject, NSSpellServerDelegate {
         var results = speller.misspellings(in: stringToCheck).map {
             NSTextCheckingResult.spellCheckingResult(range: NSRange(location: $0.location + offset, length: $0.length))
         }
+        let misspelled = results.count
         // Without an orthography the app detects the language itself and asks Apple's English for the
         // right-click guesses; claiming our language routes those requests back to us.
         let orthography = NSOrthography(dominantScript: "Latn", languageMap: ["Latn": [languageID]])
         let whole = NSRange(location: offset, length: (stringToCheck as NSString).length)
         results.append(NSTextCheckingResult.orthographyCheckingResult(range: whole, orthography: orthography))
-        log.debug("check: \(results.count) misspellings in \(Date().timeIntervalSince(start) * 1000, format: .fixed(precision: 1)) ms")
+        log.debug("check: \(misspelled) misspellings in \(Date().timeIntervalSince(start) * 1000, format: .fixed(precision: 1)) ms")
         return results
     }
 

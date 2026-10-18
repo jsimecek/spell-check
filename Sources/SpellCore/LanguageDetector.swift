@@ -1,11 +1,12 @@
 import NaturalLanguage
 
-public enum LanguageDetector {
+/// Czech or English, as judged by Apple's language recognizer.
+enum LanguageDetector {
     static let minimumConfidence = 0.6
     static let strongConfidence = 0.9
     static let minimumLetters = 4
 
-    public static func detect(_ text: String) -> Language? {
+    static func detect(_ text: String) -> Language? {
         guard let best = hypothesis(text), best.confidence >= minimumConfidence else { return nil }
         return best.language
     }
@@ -17,7 +18,8 @@ public enum LanguageDetector {
         recognizer.languageConstraints = [.czech, .english]
         recognizer.processString(text)
         guard let (language, confidence) = recognizer.languageHypotheses(withMaximum: 1).first,
-              let mapped = Language(rawValue: language.rawValue) else { return nil }
+            let mapped = Language(rawValue: language.rawValue)
+        else { return nil }
         return (mapped, confidence)
     }
 }

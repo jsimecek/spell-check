@@ -1,30 +1,31 @@
 /// Generates every Czech diacritic spelling of a word typed without (some) accents,
 /// e.g. "praci" -> "práci", "prací", ... Callers keep only the ones a dictionary accepts.
-public enum DiacriticExpander {
+enum DiacriticExpander {
+    /// Words with more spellings than this get none.
     static let maxVariants = 4096
 
-    private static let lowercaseVariants: [Character: [Character]] = [
+    private static let accentedLowercase: [Character: [Character]] = [
         "a": ["á"], "c": ["č"], "d": ["ď"], "e": ["é", "ě"], "i": ["í"], "n": ["ň"], "o": ["ó"],
         "r": ["ř"], "s": ["š"], "t": ["ť"], "u": ["ú", "ů"], "y": ["ý"], "z": ["ž"],
     ]
 
-    private static let allVariants: [Character: [Character]] = lowercaseVariants.reduce(into: [:]) { map, entry in
-        map[entry.key] = entry.value
-        map[Character(entry.key.uppercased())] = entry.value.map { Character($0.uppercased()) }
+    private static let accentedForms: [Character: [Character]] = accentedLowercase.reduce(into: [:]) { forms, entry in
+        forms[entry.key] = entry.value
+        forms[Character(entry.key.uppercased())] = entry.value.map { Character($0.uppercased()) }
     }
 
-    public static func variants(of word: String) -> [String] {
-        let options = word.map { [$0] + (allVariants[$0] ?? []) }
-        var total = 1
-        for choice in options {
-            total *= choice.count
-            if total > maxVariants { return [] }
+    static func variants(of word: String) -> [String] {
+        let choicesPerCharacter = word.map { [$0] + (accentedForms[$0] ?? []) }
+        var combinationCount = 1
+        for choices in choicesPerCharacter {
+            combinationCount *= choices.count
+            if combinationCount > maxVariants { return [] }
         }
-        guard total > 1 else { return [] }
-        var results: [String] = [""]
-        for choice in options {
-            results = results.flatMap { prefix in choice.map { prefix + String($0) } }
+        guard combinationCount > 1 else { return [] }
+        var spellings = [""]
+        for choices in choicesPerCharacter {
+            spellings = spellings.flatMap { prefix in choices.map { prefix + String($0) } }
         }
-        return results.filter { $0 != word }
+        return spellings.filter { $0 != word }
     }
 }

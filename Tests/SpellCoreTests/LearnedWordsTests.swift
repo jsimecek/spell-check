@@ -1,9 +1,17 @@
 import Foundation
 import Testing
+
 @testable import SpellCore
 
 @Suite struct LearnedWordsTests {
     let store = FileManager.default.temporaryDirectory.appendingPathComponent("czen-learned-\(UUID().uuidString).txt")
+
+    /// A read-only word list like macOS's LocalDictionary.
+    private func readOnlySource(_ contents: String) throws -> URL {
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent("czen-local-\(UUID().uuidString)")
+        try contents.write(to: source, atomically: true, encoding: .utf8)
+        return source
+    }
 
     @Test func unreadableStoreIsNeverOverwritten() throws {
         let original = Data([0x63, 0xE8, 0x0A])  // "c\u{E8}\n": CP1250 "č", invalid UTF-8
@@ -21,8 +29,7 @@ import Testing
     }
 
     @Test func forgottenReadOnlyWordStaysForgottenAfterReload() throws {
-        let source = FileManager.default.temporaryDirectory.appendingPathComponent("czen-local-\(UUID().uuidString)")
-        try "foo\nbar\n".write(to: source, atomically: true, encoding: .utf8)
+        let source = try readOnlySource("foo\nbar\n")
         try LearnedWords(storeURL: store, readOnlySources: [source]).remove("foo")
         let reloaded = try LearnedWords(storeURL: store, readOnlySources: [source])
         #expect(!reloaded.contains("foo"))
@@ -32,8 +39,7 @@ import Testing
     }
 
     @Test func relearnedReadOnlyWordForgottenAgainStaysForgottenAfterReload() throws {
-        let source = FileManager.default.temporaryDirectory.appendingPathComponent("czen-local-\(UUID().uuidString)")
-        try "foo\n".write(to: source, atomically: true, encoding: .utf8)
+        let source = try readOnlySource("foo\n")
         let learned = try LearnedWords(storeURL: store, readOnlySources: [source])
         try learned.remove("foo")
         try learned.add("foo")
@@ -61,13 +67,24 @@ import Testing
     }
 
     @Test func forgettingReadOnlyCapitalizedFormAlsoForgetsOwnLowercase() throws {
-        let source = FileManager.default.temporaryDirectory.appendingPathComponent("czen-local-\(UUID().uuidString)")
-        try "Foo\n".write(to: source, atomically: true, encoding: .utf8)
+        let source = try readOnlySource("Foo\n")
         let learned = try LearnedWords(storeURL: store, readOnlySources: [source])
         try learned.add("foo")
         try learned.remove("Foo")
         #expect(!learned.contains("Foo"))
         #expect(!(try LearnedWords(storeURL: store, readOnlySources: [source]).contains("Foo")))
+    }
+
+    @Test func wordsThatWouldChangeOtherStoreLinesAreNotLearned() throws {
+        let source = try readOnlySource("foo\n")
+        let learned = try LearnedWords(storeURL: store, readOnlySources: [source])
+        for word in ["!foo", "bar\nbaz", "qux\r\n!foo", ""] {
+            try learned.add(word)
+            #expect(!learned.contains(word))
+        }
+        let reloaded = try LearnedWords(storeURL: store, readOnlySources: [source])
+        #expect(reloaded.contains("foo"))
+        #expect(reloaded.all == ["foo"])
     }
 
     @Test func failedWriteOfMissingStoreIsReported() throws {

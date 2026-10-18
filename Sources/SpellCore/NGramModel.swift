@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol LanguageModelScoring {
+protocol LanguageModelScoring {
     /// log P(word | left) + log P(right | word); higher is more likely.
     func contextScore(_ word: String, left: String?, right: String?) -> Double
 }
@@ -16,6 +16,8 @@ public final class NGramModel: LanguageModelScoring {
     static let magic: UInt32 = 0x474E_5A43  // "CZNG"
     static let version: UInt32 = 1
     static let headerSize = 24
+    static let keySize = MemoryLayout<UInt64>.size
+    static let countSize = MemoryLayout<UInt32>.size
     static let backoff = 0.4
 
     private let data: Data
@@ -28,48 +30,61 @@ public final class NGramModel: LanguageModelScoring {
 
     public init(data: Data) throws {
         guard data.count >= Self.headerSize else { throw NGramModelError.corrupt }
-        let header = data.withUnsafeBytes { raw in
-            (raw.loadUnaligned(fromByteOffset: 0, as: UInt32.self), raw.loadUnaligned(fromByteOffset: 4, as: UInt32.self),
-             raw.loadUnaligned(fromByteOffset: 8, as: UInt64.self), raw.loadUnaligned(fromByteOffset: 16, as: UInt64.self))
+        let (magic, version, totalTokens, entryCount) = data.withUnsafeBytes { raw in
+            (
+                raw.loadLittleEndian(at: 0, as: UInt32.self),
+                raw.loadLittleEndian(at: 4, as: UInt32.self),
+                raw.loadLittleEndian(at: 8, as: UInt64.self),
+                raw.loadLittleEndian(at: 16, as: UInt64.self)
+            )
         }
-        let payload = data.count - Self.headerSize
-        guard header.0 == Self.magic, header.1 == Self.version,
-              payload % 12 == 0, header.3 == UInt64(payload / 12) else { throw NGramModelError.corrupt }
+        let payloadSize = data.count - Self.headerSize
+        let entrySize = Self.keySize + Self.countSize
+        guard magic == Self.magic, version == Self.version, payloadSize % entrySize == 0,
+            entryCount == UInt64(payloadSize / entrySize)
+        else { throw NGramModelError.corrupt }
         self.data = data
-        totalTokens = header.2
-        entryCount = Int(header.3)
+        self.totalTokens = totalTokens
+        self.entryCount = Int(entryCount)
     }
 
     /// FNV-1a 64 over UTF-8: stable across processes, unlike Swift's Hasher.
-    static func hash(_ s: String) -> UInt64 {
-        var h: UInt64 = 0xcbf2_9ce4_8422_2325
-        for byte in s.utf8 {
-            h ^= UInt64(byte)
-            h = h &* 0x0000_0100_0000_01b3
+    static func hash(_ string: String) -> UInt64 {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in string.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01b3
         }
-        return h
+        return hash
     }
 
-    static func key(_ a: String, _ b: String) -> UInt64 { hash(a + "\u{1}" + b) }
+    static func bigramKey(_ first: String, _ second: String) -> UInt64 {
+        hash(first + "\u{1}" + second)
+    }
 
     // Keys hash raw UTF-8 of the NFC corpus, so decomposed input must be composed first.
-    public func count(_ word: String) -> UInt32 { lookup(Self.hash(word.precomposedStringWithCanonicalMapping)) }
-
-    public func count(_ a: String, _ b: String) -> UInt32 {
-        lookup(Self.key(a.precomposedStringWithCanonicalMapping, b.precomposedStringWithCanonicalMapping))
+    public func count(_ word: String) -> UInt32 {
+        lookup(Self.hash(word.precomposedStringWithCanonicalMapping))
     }
 
+    public func count(_ first: String, _ second: String) -> UInt32 {
+        lookup(Self.bigramKey(first.precomposedStringWithCanonicalMapping, second.precomposedStringWithCanonicalMapping))
+    }
+
+    /// Binary search over the sorted keys; 0 when the key is absent.
     private func lookup(_ key: UInt64) -> UInt32 {
-        data.withUnsafeBytes { raw in
+        let keysOffset = Self.headerSize
+        let countsOffset = keysOffset + entryCount * Self.keySize
+        return data.withUnsafeBytes { raw in
             var low = 0
             var high = entryCount - 1
             while low <= high {
-                let mid = (low + high) / 2
-                let value = raw.loadUnaligned(fromByteOffset: Self.headerSize + mid * 8, as: UInt64.self)
-                if value == key {
-                    return raw.loadUnaligned(fromByteOffset: Self.headerSize + entryCount * 8 + mid * 4, as: UInt32.self)
+                let middle = (low + high) / 2
+                let middleKey = raw.loadLittleEndian(at: keysOffset + middle * Self.keySize, as: UInt64.self)
+                if middleKey == key {
+                    return raw.loadLittleEndian(at: countsOffset + middle * Self.countSize, as: UInt32.self)
                 }
-                if value < key { low = mid + 1 } else { high = mid - 1 }
+                if middleKey < key { low = middle + 1 } else { high = middle - 1 }
             }
             return 0
         }
@@ -79,21 +94,30 @@ public final class NGramModel: LanguageModelScoring {
     /// A phrase ("v práci") is scored word by word as a chain.
     public func contextScore(_ word: String, left: String?, right: String?) -> Double {
         let total = Double(max(totalTokens, 1))
-        func unigram(_ w: String) -> Double { (Double(count(w)) + 0.1) / total }
-        func conditional(_ w: String, after previous: String) -> Double {
-            let pair = count(previous, w)
-            guard pair > 0 else { return Self.backoff * unigram(w) }
-            return Double(pair) / Double(max(count(previous), pair))
+        func unigram(_ word: String) -> Double {
+            (Double(count(word)) + 0.1) / total
         }
+        func conditional(_ word: String, after previous: String) -> Double {
+            let pairCount = count(previous, word)
+            guard pairCount > 0 else { return Self.backoff * unigram(word) }
+            return Double(pairCount) / Double(max(count(previous), pairCount))
+        }
+        var chain = word.split(separator: " ").map(String.init)
+        if let right { chain.append(right) }
         var previous = left
         var score = 0.0
-        for part in word.split(separator: " ").map(String.init) + (right.map { [$0] } ?? []) {
-            score += log(previous.map { conditional(part, after: $0) } ?? unigram(part))
-            previous = part
+        for current in chain {
+            let probability = if let previous { conditional(current, after: previous) } else { unigram(current) }
+            score += log(probability)
+            previous = current
         }
         return score
     }
+}
 
+// MARK: - Building
+
+extension NGramModel {
     /// Sentences at least this long without a single accent are treated as typed without accents.
     static let minUnaccentedSentenceTokens = 4
 
@@ -101,29 +125,37 @@ public final class NGramModel: LanguageModelScoring {
     /// `skipUnaccentedSentences` keeps Czech typed without accents from teaching wrong pairs ("mam rad").
     public static func build(lines: some Sequence<String>, minCount: UInt32, skipUnaccentedSentences: Bool = false) -> Data {
         var counts: [UInt64: UInt32] = [:]
-        var total: UInt64 = 0
+        var totalTokens: UInt64 = 0
         for line in lines {
             let text = line.firstIndex(of: "\t").map { String(line[line.index(after: $0)...]) } ?? line
             let tokens = NGramTokenizer.tokens(in: text)
-            if skipUnaccentedSentences, tokens.count >= minUnaccentedSentenceTokens,
-               text.folding(options: .diacriticInsensitive, locale: nil) == text { continue }
+            if skipUnaccentedSentences, tokens.count >= minUnaccentedSentenceTokens, !text.hasDiacritics { continue }
             for (index, token) in tokens.enumerated() {
-                total += 1
+                totalTokens += 1
                 counts[hash(token.word), default: 0] += 1
                 if index > 0, tokens[index - 1].sentence == token.sentence {
-                    counts[key(tokens[index - 1].word, token.word), default: 0] += 1
+                    counts[bigramKey(tokens[index - 1].word, token.word), default: 0] += 1
                 }
             }
         }
         let kept = counts.filter { $0.value >= minCount }.sorted { $0.key < $1.key }
-        var out = Data(capacity: headerSize + kept.count * 12)
-        func append<T: FixedWidthInteger>(_ value: T) { withUnsafeBytes(of: value.littleEndian) { out.append(contentsOf: $0) } }
+
+        var output = Data(capacity: headerSize + kept.count * (keySize + countSize))
+        func append(_ value: some FixedWidthInteger) {
+            withUnsafeBytes(of: value.littleEndian) { output.append(contentsOf: $0) }
+        }
         append(magic)
         append(version)
-        append(total)
+        append(totalTokens)
         append(UInt64(kept.count))
         for entry in kept { append(entry.key) }
         for entry in kept { append(entry.value) }
-        return out
+        return output
+    }
+}
+
+private extension UnsafeRawBufferPointer {
+    func loadLittleEndian<T: FixedWidthInteger & BitwiseCopyable>(at offset: Int, as type: T.Type) -> T {
+        T(littleEndian: loadUnaligned(fromByteOffset: offset, as: T.self))
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import SpellCore
 
 /// Integration tests against the real dictionaries from scripts/fetch-dictionaries.sh.
@@ -113,17 +114,22 @@ import Testing
         #expect(speller.guesses(for: "praci").first == "prací")
     }
 
-    @Test func contextEvictionNeverDropsWordsFromTheSameCheck() {
+    /// Distinct non-words ("qxjbbb", "qxjbbf", ...), enough to fill the remembered contexts.
+    private static func nonWords(count: Int) -> [String] {
         let letters = "bfghjklmnpqrstvwxz".map(String.init)
-        let junk = letters.flatMap { a in letters.flatMap { b in letters.map { c in "qxj" + a + b + c } } }.prefix(2000)
+        let all = letters.flatMap { a in letters.flatMap { b in letters.map { c in "qxj" + a + b + c } } }
+        return Array(all.prefix(count))
+    }
+
+    @Test func contextEvictionNeverDropsWordsFromTheSameCheck() {
+        let junk = Self.nonWords(count: 2000)
         #expect(flagged(junk.joined(separator: " ")).count == 2000)
         _ = speller.misspellings(in: "Jsem spokojen s praci, nevim.")
         #expect(speller.guesses(for: "praci").first == "prací")
     }
 
     @Test func contextEvictionOnBareRecheckKeepsLastCheck() {
-        let letters = "bfghjklmnpqrstvwxz".map(String.init)
-        let junk = letters.flatMap { a in letters.flatMap { b in letters.map { c in "qxj" + a + b + c } } }.prefix(2000)
+        let junk = Self.nonWords(count: 2000)
         _ = speller.misspellings(in: junk.joined(separator: " ") + ". Jsem spokojen s praci, nevim.")
         _ = speller.misspellings(in: "praci")
         #expect(speller.guesses(for: "praci").first == "prací")
@@ -234,6 +240,15 @@ import Testing
         #expect(flagged("Příliš žluťoučký kůň úpěl ďábelské ódy.".decomposedStringWithCanonicalMapping).isEmpty)
     }
 
+    @Test func overlongJunkWordIsCheckedQuickly() {
+        // 12 accentable letters make 4096 spellings; building them for a long word took seconds.
+        let word = String(repeating: "a", count: 12) + String(repeating: "b", count: 3000)
+        let start = Date()
+        #expect(flagged("To je \(word) nápad.") == [word])
+        _ = speller.guesses(for: word)
+        #expect(Date().timeIntervalSince(start) < 2)
+    }
+
     @Test(arguments: ["Mám rad kafe.", "To je dobrý nápad, který jsi mel.", "Jsem spokojený s praci."])
     func decomposedTextKeepsSentenceContext(_ sentence: String) {
         let decomposed = sentence.decomposedStringWithCanonicalMapping
@@ -245,10 +260,13 @@ import Testing
     }
 }
 
+/// Always answers `answer` and records what was prefetched.
 private final class FakeNativeGuesses: NativeGuessProviding {
     let answer: NativeGuesses?
     private(set) var prefetched: [String] = []
+
     init(answer: NativeGuesses?) { self.answer = answer }
+
     func cachedGuesses(for word: String) -> NativeGuesses? { answer }
     func prefetch(_ words: [String]) { prefetched += words }
 }
@@ -263,12 +281,13 @@ private final class FakeNativeGuesses: NativeGuessProviding {
     }
 
     @Test func includesNativeCandidates() throws {
-        let s = try speller(FakeNativeGuesses(answer: NativeGuesses(czech: ["bflmpsvy"], english: [])))
-        #expect(s.guesses(for: "bflmpsvz", context: BilingualSpellerTests.czech).contains("bflmpsvy"))
+        let withNative = try speller(FakeNativeGuesses(answer: NativeGuesses(czech: ["bflmpsvy"], english: [])))
+        #expect(withNative.guesses(for: "bflmpsvz", context: BilingualSpellerTests.czech).contains("bflmpsvy"))
     }
 
     @Test func worksWithoutNativeGuesses() throws {
-        #expect(try speller(FakeNativeGuesses(answer: nil)).guesses(for: "protoze", context: BilingualSpellerTests.czech).first == "protože")
+        let missing = FakeNativeGuesses(answer: nil)
+        #expect(try speller(missing).guesses(for: "protoze", context: BilingualSpellerTests.czech).first == "protože")
         let empty = FakeNativeGuesses(answer: NativeGuesses(czech: [], english: []))
         #expect(try speller(empty).guesses(for: "protoze", context: BilingualSpellerTests.czech).first == "protože")
     }

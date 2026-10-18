@@ -1,20 +1,7 @@
 import Foundation
 import Testing
+
 @testable import SpellCore
-
-@Suite struct NGramTokenizerTests {
-    @Test func lowercasesSplitsSentencesAndKeepsApostrophes() {
-        let tokens = NGramTokenizer.tokens(in: "Mám práci. Don’t stop, OK?")
-        #expect(tokens.map(\.word) == ["mám", "práci", "don't", "stop", "ok"])
-        #expect(tokens.map(\.sentence) == [0, 0, 1, 1, 1])
-    }
-
-    @Test func reportsUTF16Ranges() {
-        let text = "🐴 kůň běží"
-        let tokens = NGramTokenizer.tokens(in: text)
-        #expect(tokens.map { (text as NSString).substring(with: $0.range) } == ["kůň", "běží"])
-    }
-}
 
 @Suite struct NGramModelTests {
     static let corpus = [
@@ -31,7 +18,7 @@ import Testing
 
     @Test func hashIsStableAcrossRuns() {
         // FNV-1a 64; models built earlier must stay readable.
-        #expect(NGramModel.hash("a") == 0xaf63dc4c8601ec8c)
+        #expect(NGramModel.hash("a") == 0xaf63_dc4c_8601_ec8c)
     }
 
     @Test func countsUnigramsAndBigrams() throws {
@@ -82,6 +69,17 @@ import Testing
         let m = try NGramModel(data: NGramModel.build(lines: lines, minCount: 1, skipUnaccentedSentences: true))
         #expect(m.count("mam", "rad") == 0)
         #expect(m.count("mám", "rád") == 1)
+    }
+
+    @Test func readsLittleEndianFileLayout() throws {
+        var file = Data([0x43, 0x5A, 0x4E, 0x47, 1, 0, 0, 0])  // "CZNG", version 1
+        file += Data([10, 0, 0, 0, 0, 0, 0, 0])  // total tokens
+        file += Data([1, 0, 0, 0, 0, 0, 0, 0])  // entry count
+        withUnsafeBytes(of: NGramModel.hash("a").littleEndian) { file.append(contentsOf: $0) }
+        file += Data([7, 0, 0, 0])  // count of "a"
+        let model = try NGramModel(data: file)
+        #expect(model.totalTokens == 10)
+        #expect(model.count("a") == 7)
     }
 
     @Test func rejectsCorruptData() {

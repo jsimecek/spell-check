@@ -1,5 +1,6 @@
 import Foundation
 
+/// Apple's own guesses for one word.
 public struct NativeGuesses: Codable, Equatable, Sendable {
     public var czech: [String]
     public var english: [String]
@@ -42,11 +43,14 @@ public struct NativeGuessResponse: Codable, Sendable {
 public final class NativeGuessClient: NativeGuessProviding, @unchecked Sendable {
     static let maxCachedWords = 2000
     static let maxPendingWords = 100
-    // No real cs/en word is longer; with maxPendingWords this keeps in-flight requests under the 16 KB pipe buffer.
+    // No real cs/en word is longer.
     static let maxWordLength = 48
+    // Keeps all in-flight requests under the 16 KB pipe buffer, so a stuck helper never blocks a write.
+    static let maxRequestBytes = 16 * 1024 / maxPendingWords
 
     private let executable: URL
     private let arguments: [String]
+    // Guards all mutable state below; answers arrive on a background reader thread.
     private let lock = NSLock()
     private var process: Process?
     private var input: FileHandle?
@@ -61,50 +65,55 @@ public final class NativeGuessClient: NativeGuessProviding, @unchecked Sendable 
     deinit { process?.terminate() }
 
     public func cachedGuesses(for word: String) -> NativeGuesses? {
-        lock.lock()
-        defer { lock.unlock() }
-        return cache[word]
+        lock.withLock { cache[word] }
     }
 
     public func prefetch(_ words: [String]) {
-        lock.lock()
-        defer { lock.unlock() }
-        let wanted = words.filter { $0.utf16.count <= Self.maxWordLength && cache[$0] == nil }
-        // runningInput() before checking `pending`: restarting a dead helper is what clears its stale entries.
-        guard !wanted.isEmpty, let input = runningInput(), pending.count < Self.maxPendingWords else { return }
-        var data = Data()
-        for word in wanted where pending.count < Self.maxPendingWords {
-            guard !pending.contains(word), let line = try? JSONEncoder().encode(NativeGuessRequest(word: word)) else {
-                continue
+        lock.withLock {
+            let wanted = words.filter { $0.utf16.count <= Self.maxWordLength && cache[$0] == nil }
+            // runningInput() before checking `pending`: restarting a dead helper is what clears its stale entries.
+            guard !wanted.isEmpty, let input = runningInput(), pending.count < Self.maxPendingWords else { return }
+            var requests = Data()
+            for word in wanted where pending.count < Self.maxPendingWords && !pending.contains(word) {
+                guard let line = Self.requestLine(for: word) else { continue }
+                requests.append(line)
+                pending.insert(word)
             }
-            data.append(line)
-            data.append(UInt8(ascii: "\n"))
-            pending.insert(word)
+            do { try input.write(contentsOf: requests) } catch { stop() }
         }
-        do { try input.write(contentsOf: data) } catch { stop() }
     }
 
-    /// Caller holds `lock`.
+    /// The newline-terminated JSON request, or nil if it is too long to send.
+    private static func requestLine(for word: String) -> Data? {
+        guard var line = try? JSONEncoder().encode(NativeGuessRequest(word: word)), line.count < maxRequestBytes else {
+            return nil
+        }
+        line.append(UInt8(ascii: "\n"))
+        return line
+    }
+
+    /// The helper's stdin, starting a new helper if none is running. Caller holds `lock`.
     private func runningInput() -> FileHandle? {
         if let process, process.isRunning, let input { return input }
         pending.removeAll()
         let stdin = Pipe()
         let stdout = Pipe()
-        let child = Process()
-        child.executableURL = executable
-        child.arguments = arguments
-        child.standardInput = stdin
-        child.standardOutput = stdout
-        child.standardError = FileHandle.nullDevice
+        let helper = Process()
+        helper.executableURL = executable
+        helper.arguments = arguments
+        helper.standardInput = stdin
+        helper.standardOutput = stdout
+        helper.standardError = FileHandle.nullDevice
         // A dead helper must surface as a write error, not a SIGPIPE that kills us.
         _ = fcntl(stdin.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
-        do { try child.run() } catch { return nil }
-        process = child
+        do { try helper.run() } catch { return nil }
+        process = helper
         input = stdin.fileHandleForWriting
         Thread { [weak self] in self?.readAnswers(from: stdout.fileHandleForReading) }.start()
         return input
     }
 
+    /// Runs on its own thread until the helper exits.
     private func readAnswers(from output: FileHandle) {
         var buffer = Data()
         while true {
@@ -114,13 +123,18 @@ public final class NativeGuessClient: NativeGuessProviding, @unchecked Sendable 
             while let newline = buffer.firstIndex(of: UInt8(ascii: "\n")) {
                 let line = buffer[buffer.startIndex..<newline]
                 buffer.removeSubrange(buffer.startIndex...newline)
-                guard let response = try? JSONDecoder().decode(NativeGuessResponse.self, from: line) else { continue }
-                lock.lock()
-                if cache.count >= Self.maxCachedWords { cache.removeAll() }
-                cache[response.word] = NativeGuesses(czech: response.czech, english: response.english)
-                pending.remove(response.word)
-                lock.unlock()
+                if let response = try? JSONDecoder().decode(NativeGuessResponse.self, from: line) {
+                    store(response)
+                }
             }
+        }
+    }
+
+    private func store(_ response: NativeGuessResponse) {
+        lock.withLock {
+            if cache.count >= Self.maxCachedWords { cache.removeAll() }
+            cache[response.word] = NativeGuesses(czech: response.czech, english: response.english)
+            pending.remove(response.word)
         }
     }
 

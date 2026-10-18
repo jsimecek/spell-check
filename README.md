@@ -1,64 +1,95 @@
 # CzEnSpell
 
-Czech + English spell checking for macOS, built as a native spell service. It keeps the system squiggle and the right-click suggestions and replaces the macOS checker, so the two can't clash.
+Czech + English spell checking for macOS, as a native system spell service. It appears in the Spelling setting as **Multiple languages (CzEnSpell)** and checks both languages at once, so mixed text like "pošli mi ten pull request" is fine while "muzes" and "teh" get underlined with the right suggestions. Apps keep the normal red squiggle and right-click suggestions.
 
 ## Why
 
-On macOS 27 the native checker underlines Czech words but often offers no suggestions. Probing `NSSpellChecker` directly (`scripts/probe.sh auto` vs `scripts/probe.sh cs`) shows Apple's Czech dictionary is fine. The problem is **automatic language detection** across ~34 enabled languages:
+On macOS 27 the built-in checker underlines Czech words but often offers no suggestions. Apple's Czech dictionary is fine (`scripts/probe.sh cs`); the problem is automatic language detection. Czech typed without accents is often detected as `und` (undetermined), and then no dictionary offers suggestions. Output of `scripts/probe.sh auto` vs `scripts/probe.sh mul` on macOS 27.0.1 with English and Czech enabled:
 
 | Input | Native "Automatic by Language" | CzEnSpell |
 |---|---|---|
-| `Zitra pujdeme do kina s kamarady.` | detected as `und`, `pujdeme` gets **no suggestions** | `Zítra`, `půjdeme`, `kamarády` |
-| `Ahoj, prosim te muzes mi to poslat?` | nothing flagged | `prosím`, `tě`, `můžeš` |
-| `Dneska nevim jestli zitra prijdu…` | `nevim`, `zitra` not flagged | all flagged, correct first guess |
-| `I definately recieve teh mail` | `teh` not flagged | `the` |
+| `Ahoj, prosim te muzes mi to poslat?` | `und`: 3 words underlined, no suggestions | `prosím`, `tě`, `můžeš` |
+| `Zitra pujdeme do kina s kamarady.` | `und`: 3 words underlined, no suggestions | `Zítra`, `půjdeme`, `kamarády` |
+| `To je dobrej napad, kterej jsi mel, ted to vim.` | `und`: 6 words underlined, no suggestions | `dobrý`, `nápad`, `který`, `měl` |
 
-This has nothing to do with Apple Intelligence: Czech isn't an Apple Intelligence language, and Apple Intelligence doesn't drive the squiggles.
+With many languages enabled it gets worse: in earlier runs with about 34 languages, some misspellings (`teh`, `nevim`) were not underlined at all.
 
-## How it works
+## Requirements
 
-- Registers language `mul` from vendor `CzEnSpell` via `NSSpellServer`. Apps that use the system checker (Cocoa text views, WebKit in Safari/Mail) route spelling to it. Chromium/Electron apps keep their own language settings, so they're unverified.
-- A word is correct if the Czech **or** the English Hunspell dictionary accepts it, so mixed text like "pošli mi pull request" stays clean. In Czech text, an English-only word with a valid accented Czech form (`ted`, `vim`, `problem`) is still flagged.
-- **Language per sentence**: Apple's `NLLanguageRecognizer` (restricted to cs/en), overruled by dictionary evidence when unsure. Words that only make sense as Czech without accents count as Czech evidence.
-- **Candidates** come from Hunspell, accent restoration (`muzes` → `můžeš`), spoken-Czech standard forms (`kterej` → `který`), near-miss common words, and Apple's own cs/en lists. Apple's lists are fetched in the background by a helper process (`CzEnSpell --apple-helper`), because Apple's checker stalls when called from inside a spell service.
-- **Ranking by sentence context**: a word-pair (bigram) model built from Leipzig web corpora scores how well each candidate fits between its neighbours, minus a penalty per real edit (accent-only changes are free) and a penalty for the other language. So `prosim te` → `tě`, `s praci` → `prací`, `mam praci` → `práci`, and rare junk like `maze's` sinks.
-- **Valid-but-wrong words**: in Czech sentences, an accentless word that is valid on its own still gets flagged when an accented form fits the sentence far better (`Nemam cas` → `Nemám čas`, `Mam rad` → `Mám rád`). An occasional false flag on a correct rare word is the accepted trade-off. Tune `BilingualSpeller.missingAccentMargin`: lower flags more.
-- Shows at most 5 suggestions.
-- Only underlines and suggests. It never auto-replaces text.
+- macOS 14 or later to run. Tested on macOS 27.0.1 only.
+- Xcode with Swift 6 to build (`swift-tools-version:6.0`). Developed with Xcode 27.0 (Swift 6.4).
+- Network access for the first build, which downloads dictionaries and two text corpora of about 200 MB each.
+
+There are no prebuilt binaries. You build the service on your own Mac.
 
 ## Install
 
-Requires Xcode / Swift 6.
-
 ```sh
-scripts/build.sh      # fetches dictionaries + ~400 MB of corpora (first run only), builds build/CzEnSpell.service
-scripts/install.sh    # copies to ~/Library/Services (user-level, no sudo)
-scripts/probe.sh      # optional end-to-end check
+git clone https://github.com/jsimecek/spell-check
+cd spell-check
+scripts/build.sh      # first run downloads data (a few minutes), builds build/CzEnSpell.service
+scripts/install.sh    # copies it to ~/Library/Services (current user only, no sudo)
 ```
 
-Then **System Settings › Keyboard › Text Input › Edit… › Spelling**: choose **Multiple languages (CzEnSpell)**, and turn off **Correct spelling automatically**.
+Then turn it on:
+
+1. Open **System Settings > Keyboard**. Under **Text Input**, click **Edit…** next to **Input Sources**.
+2. Select **All Input Sources**, set **Spelling** to **Multiple languages (CzEnSpell)** and turn off **Correct spelling automatically**.
+3. Restart apps that were already running. They keep the old checker until then.
+
+Optional check: `scripts/probe.sh` runs sample sentences through the system checker the way an app does. The first run after install may report no misspellings while the service starts; run it again.
 
 ## Uninstall
 
-`scripts/uninstall.sh`, then set Spelling back to **Automatic by Language**.
+```sh
+scripts/uninstall.sh
+```
+
+Then set **Spelling** back to **Automatic by Language** in the same settings sheet.
+
+## How it works
+
+- The service registers the language `mul` with macOS through `NSSpellServer`. Apps that use the system checker (Cocoa text views, WebKit in Safari and Mail) send their spelling requests to it.
+- A word is correct if the Czech or the English Hunspell dictionary accepts it. In Czech text, an English-only word with a valid accented Czech form (`ted`, `vim`, `problem`) is still flagged.
+- Each sentence is classified as Czech or English with Apple's `NLLanguageRecognizer`, corrected by dictionary evidence when it is unsure.
+- Suggestions come from Hunspell, accent restoration (`muzes` → `můžeš`), standard forms of spoken Czech (`kterej` → `který`), near-miss common words, and Apple's own cs/en dictionaries (asked by a helper process, because Apple's checker stalls when called from inside a spell service).
+- A word-pair model built from the Leipzig corpora ranks suggestions by how well they fit between the neighbouring words, so `prosim te` suggests `tě` and `mam praci` suggests `práci`.
+- In Czech sentences, a valid word that is missing accents is flagged when the accented form fits much better (`Nemam cas` → `Nemám čas`). A rare correct word is occasionally flagged; that is the accepted trade-off.
+- At most 5 suggestions. It only underlines and suggests, it never replaces text on its own.
+
+## Privacy
+
+- Everything runs locally. CzEnSpell's code makes no network requests; only `scripts/fetch-dictionaries.sh` downloads data, at build time.
+- Logs (unified log, subsystem `io.github.jsimecek.CzEnSpell`) contain counts, timings and error codes, never the checked text.
+- Words you add with "Learn Spelling" are saved in `~/Library/Application Support/CzEnSpell/learned.txt`. Words already learned in macOS (`~/Library/Spelling/LocalDictionary`) are read, never written.
 
 ## Limitations
 
-- Apps with their own engine (Firefox, MS Office) aren't affected.
-- No grammar checking.
-- The first check right after install or a crash can come back empty while the service starts (~1 s). The next check works.
-- Valid-but-wrong detection covers missing accents only, not other real-word mistakes (`byt`/`být` is judged on accents alone, never on grammar).
-- Apps already running when you switched the Spelling setting keep the old checker until restarted.
-- Memory: ~100 MB for the service plus ~30 MB for the helper.
+- The bundle is ad-hoc signed for the Mac that built it and is not notarized.
+- Apps with their own spell checker (Firefox, Microsoft Office) are not affected. Chromium and Electron apps are untested.
+- No grammar checking. Real-word mistakes are only caught when accents are missing (`byt`/`být` is judged on accents, never on grammar).
+- Right after install or a crash, the first check can come back empty while the service starts. The next check works.
+- Memory: about 100 MB for the service plus about 30 MB for the helper.
 
 ## Development
 
-`scripts/fetch-dictionaries.sh && swift test`. Constraints and layout are in [AGENTS.md](AGENTS.md).
+```sh
+scripts/fetch-dictionaries.sh   # required once before swift test
+swift build
+swift test                      # unit tests plus integration tests against the real dictionaries
+```
 
-## Licenses and attribution
+End-to-end check on your Mac: `scripts/build.sh`, `scripts/install.sh`, then `scripts/probe.sh mul` twice (the first run warms up the service). `scripts/probe.sh auto`, `cs` and `en` show what the native checker does for comparison.
 
-- Code in this repo: [MIT](LICENSE). Third-party parts keep their own licences, listed below. A built `CzEnSpell.service` bundles the GPL Czech dictionary, so anyone redistributing the built bundle must follow the GPL for that file.
-- [Hunspell](https://github.com/hunspell/hunspell) 1.7.5, vendored in `Sources/CHunspell`: MPL 1.1 / GPL 2 / LGPL 2.1.
-- Dictionaries from [LibreOffice/dictionaries](https://github.com/LibreOffice/dictionaries), fetched at build time: `cs_CZ` GPL, `en_US` SCOWL-based.
-- Word frequencies from [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords) (OpenSubtitles 2018), CC-BY-SA 4.0, fetched at build time.
-- Bigram models built at build time from the [Leipzig Corpora Collection](https://wortschatz.uni-leipzig.de/en/download) (`ces-cz_web-public_2019_1M`, `eng-com_web-public_2018_1M`). The download page says CC BY and the usage page says CC BY-NC (personal and scientific use), so commercial use needs their consent. The models are built locally and not committed. D. Goldhahn, T. Eckart, U. Quasthoff: Building Large Monolingual Dictionaries at the Leipzig Corpora Collection, LREC 2012.
+Design notes and hard-won macOS constraints are in [AGENTS.md](AGENTS.md).
+
+## License
+
+The code in this repository is [MIT](LICENSE) licensed. Third-party parts keep their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). In short:
+
+- Vendored [Hunspell](https://github.com/hunspell/hunspell) 1.7.5 in `Sources/CHunspell`: MPL 1.1 / GPL 2.0+ / LGPL 2.1+.
+- Not in this repository, downloaded at build time and copied into the built bundle: the Czech Hunspell dictionary (GPL), the English Hunspell dictionary (SCOWL license), word frequency lists (CC BY-SA 4.0) and word-pair counts derived from the Leipzig Corpora Collection (CC BY, with a non-commercial clause on their terms page).
+
+A bundle you build contains that data, so if you share it, those licenses apply too.
+
+This project does not accept contributions. Forks are welcome under the license.

@@ -13,6 +13,9 @@ public enum SpellCoreError: Error, CustomStringConvertible {
 
 /// Thin wrapper over the Hunspell C API. Dictionaries must be UTF-8 (`SET UTF-8`).
 final class HunspellDictionary {
+    /// Hunspell rejects longer words without a lookup (`MAXWORDUTF8LEN` in hunspell.cxx).
+    static let maxWordBytes = 299
+
     private let handle: OpaquePointer
 
     init(directory: URL, name: String) throws {
@@ -38,8 +41,4 @@ final class HunspellDictionary {
         guard let list, count > 0 else { return [] }
         return (0..<Int(count)).compactMap { list[$0].map { String(cString: $0) } }
     }
-
-    func add(_ word: String) { Hunspell_add(handle, word) }
-
-    func remove(_ word: String) { Hunspell_remove(handle, word) }
 }

@@ -6,7 +6,7 @@ import os
 final class SpellServerDelegate: NSObject, NSSpellServerDelegate {
     private let speller: BilingualSpeller
     private let languageID: String
-    private let log = Logger(subsystem: "io.github.jirisimecek.CzEnSpell", category: "server")
+    private let log = Logger(subsystem: "io.github.jsimecek.CzEnSpell", category: "server")
 
     init(speller: BilingualSpeller, languageID: String) {
         self.speller = speller
@@ -18,11 +18,7 @@ final class SpellServerDelegate: NSObject, NSSpellServerDelegate {
         wordCount: UnsafeMutablePointer<Int>, countOnly: Bool
     ) -> NSRange {
         let words = WordScanner.words(in: stringToCheck)
-        if countOnly {
-            wordCount.pointee = words.count
-            return NSRange(location: NSNotFound, length: 0)
-        }
-        guard let first = speller.misspellings(in: stringToCheck).first else {
+        guard !countOnly, let first = speller.misspellings(in: stringToCheck).first else {
             wordCount.pointee = words.count
             return NSRange(location: NSNotFound, length: 0)
         }
@@ -41,20 +37,20 @@ final class SpellServerDelegate: NSObject, NSSpellServerDelegate {
         var results = speller.misspellings(in: stringToCheck).map {
             NSTextCheckingResult.spellCheckingResult(range: NSRange(location: $0.location + offset, length: $0.length))
         }
-        let misspelled = results.count
+        let misspelledCount = results.count
         // Without an orthography the app detects the language itself and asks Apple's English for the
         // right-click guesses; claiming our language routes those requests back to us.
         let orthography = NSOrthography(dominantScript: "Latn", languageMap: ["Latn": [languageID]])
-        let whole = NSRange(location: offset, length: (stringToCheck as NSString).length)
-        results.append(NSTextCheckingResult.orthographyCheckingResult(range: whole, orthography: orthography))
-        log.debug("check: \(misspelled) misspellings in \(Date().timeIntervalSince(start) * 1000, format: .fixed(precision: 1)) ms")
+        let wholeRange = NSRange(location: offset, length: (stringToCheck as NSString).length)
+        results.append(NSTextCheckingResult.orthographyCheckingResult(range: wholeRange, orthography: orthography))
+        log.debug("check: \(misspelledCount) misspellings in \(Self.milliseconds(since: start), format: .fixed(precision: 1)) ms")
         return results
     }
 
     func spellServer(_ sender: NSSpellServer, suggestGuessesForWord word: String, inLanguage language: String) -> [String]? {
         let start = Date()
         let guesses = speller.guesses(for: word)
-        log.debug("guesses: \(guesses.count) in \(Date().timeIntervalSince(start) * 1000, format: .fixed(precision: 1)) ms")
+        log.debug("guesses: \(guesses.count) in \(Self.milliseconds(since: start), format: .fixed(precision: 1)) ms")
         return guesses
     }
 
@@ -67,8 +63,12 @@ final class SpellServerDelegate: NSObject, NSSpellServerDelegate {
     }
 
     /// Domain and code only, so no file paths or user text reach the log.
-    private func logSaveFailure(_ action: String, _ error: Error) {
+    private func logSaveFailure(_ action: String, _ error: any Error) {
         let error = error as NSError
         log.error("\(action, privacy: .public): saving learned words failed: \(error.domain, privacy: .public) \(error.code)")
+    }
+
+    private static func milliseconds(since start: Date) -> Double {
+        Date().timeIntervalSince(start) * 1000
     }
 }

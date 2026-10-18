@@ -1,6 +1,21 @@
+# macOS
 .DS_Store
+._*
+
+# SwiftPM
 .build/
 .swiftpm/
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+*.xcodeproj/project.xcworkspace/
+*.xcworkspace/xcuserdata/
+
+# Build output and fetched third-party data (scripts/build.sh, scripts/fetch-dictionaries.sh)
 build/
 Dictionaries/
+
+# Local
 .backup/

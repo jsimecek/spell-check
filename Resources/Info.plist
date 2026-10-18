@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>CzEnSpell</string>
 	<key>CFBundleIdentifier</key>
-	<string>io.github.jirisimecek.CzEnSpell</string>
+	<string>io.github.jsimecek.CzEnSpell</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

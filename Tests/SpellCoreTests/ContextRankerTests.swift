@@ -1,4 +1,5 @@
 import Testing
+
 @testable import SpellCore
 
 /// Scores by a fixed table instead of a real model.
@@ -42,8 +43,9 @@ private struct FakeModel: LanguageModelScoring {
     }
 
     @Test func closerCandidateBeatsForeignPenalty() {
-        let ranked = rank("recieve", [("recidiva", .czech), ("receive", .english)],
-                          context: WordContext(language: .czech, left: nil, right: nil))
+        let ranked = rank(
+            "recieve", [("recidiva", .czech), ("receive", .english)],
+            context: WordContext(language: .czech, left: nil, right: nil))
         #expect(ranked.first == "receive")
     }
 
@@ -76,8 +78,10 @@ private struct FakeModel: LanguageModelScoring {
     @Test func keepsCapitalizationFixOfTheTypedWord() {
         let ranked = ContextRanker.rank(
             word: "monday",
-            candidates: [Candidate(text: "Monday", language: .english, source: .capitalization),
-                         Candidate(text: "today", language: .english, source: .hunspell)],
+            candidates: [
+                Candidate(text: "Monday", language: .english, source: .capitalization),
+                Candidate(text: "today", language: .english, source: .hunspell),
+            ],
             context: nil,
             models: [.english: FakeModel()]
         )
@@ -91,8 +95,10 @@ private struct FakeModel: LanguageModelScoring {
     @Test func colloquialStandardFormCountsAsNearlyFree() {
         let ranked = ContextRanker.rank(
             word: "kterej",
-            candidates: [Candidate(text: "terej", language: .czech, source: .hunspell),
-                         Candidate(text: "který", language: .czech, source: .colloquial)],
+            candidates: [
+                Candidate(text: "terej", language: .czech, source: .hunspell),
+                Candidate(text: "který", language: .czech, source: .colloquial),
+            ],
             context: nil,
             models: [.czech: FakeModel(scores: ["terej": -15, "který": -8])]
         )

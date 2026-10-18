@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Removes CzEnSpell.service and restores the native spell checker list.
+# Removes CzEnSpell.service for the current user and refreshes the list of spell checkers.
+# Usage: scripts/uninstall.sh
 set -euo pipefail
 
-DEST="$HOME/Library/Services/CzEnSpell.service"
-pkill -x CzEnSpell 2>/dev/null || true
+DEST="${HOME:?}/Library/Services/CzEnSpell.service"
+
+pkill -x -u "$(id -u)" CzEnSpell 2>/dev/null || true
 rm -rf "$DEST"
 /System/Library/CoreServices/pbs -update
 echo "Removed $DEST"

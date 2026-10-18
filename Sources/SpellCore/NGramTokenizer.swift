@@ -2,48 +2,52 @@ import Foundation
 
 /// Lowercased words with UTF-16 ranges and sentence numbers. Shared by the model builder and the
 /// runtime so both see identical tokens.
-public enum NGramTokenizer {
-    public struct Token: Equatable, Sendable {
-        public let word: String
-        public let range: NSRange
-        public let sentence: Int
+enum NGramTokenizer {
+    struct Token: Equatable, Sendable {
+        let word: String
+        let range: NSRange
+        let sentence: Int
     }
 
-    private static let sentenceEnd: Set<Unicode.Scalar> = [".", "!", "?", "\n", "…"]
+    private static let sentenceEnds: Set<Unicode.Scalar> = [".", "!", "?", "\n", "…"]
     private static let apostrophes: Set<Unicode.Scalar> = ["'", "\u{2019}"]
 
-    public static func tokens(in text: String) -> [Token] {
+    static func tokens(in text: String) -> [Token] {
         var tokens: [Token] = []
         var sentence = 0
-        var current = String.UnicodeScalarView()
-        var start = 0
-        var offset = 0
+        var word = String.UnicodeScalarView()
+        var wordStart = 0
+        var offset = 0  // UTF-16 offset of the current scalar
+        // An apostrophe is kept only between letters ("don't"), so it waits for the next letter.
         var pendingApostrophe = false
 
-        func flush() {
-            guard !current.isEmpty else { return }
-            tokens.append(Token(word: String(current).lowercased(),
-                                range: NSRange(location: start, length: offset - start - (pendingApostrophe ? 1 : 0)),
-                                sentence: sentence))
-            current = String.UnicodeScalarView()
+        func finishWord() {
+            guard !word.isEmpty else { return }
+            let trailingApostrophe = pendingApostrophe ? 1 : 0
+            let range = NSRange(location: wordStart, length: offset - wordStart - trailingApostrophe)
+            tokens.append(Token(word: String(word).lowercased(), range: range, sentence: sentence))
+            word = String.UnicodeScalarView()
             pendingApostrophe = false
         }
 
         for scalar in text.unicodeScalars {
-            let width = scalar.utf16.count
             if CharacterSet.letters.contains(scalar) || CharacterSet.nonBaseCharacters.contains(scalar) {
-                if current.isEmpty { start = offset }
-                if pendingApostrophe { current.append("'"); pendingApostrophe = false }
-                current.append(scalar)
-            } else if apostrophes.contains(scalar), !current.isEmpty, !pendingApostrophe {
+                if word.isEmpty { wordStart = offset }
+                if pendingApostrophe {
+                    word.append("'")
+                    pendingApostrophe = false
+                }
+                word.append(scalar)
+            } else if apostrophes.contains(scalar), !word.isEmpty, !pendingApostrophe {
                 pendingApostrophe = true
             } else {
-                flush()
-                if sentenceEnd.contains(scalar), tokens.last?.sentence == sentence { sentence += 1 }
+                finishWord()
+                // Only a sentence with words in it can end, so "?!" or "..." count once.
+                if sentenceEnds.contains(scalar), tokens.last?.sentence == sentence { sentence += 1 }
             }
-            offset += width
+            offset += scalar.utf16.count
         }
-        flush()
+        finishWord()
         return tokens
     }
 }

@@ -75,7 +75,8 @@ public final class BilingualSpeller {
             if !isCorrect(word, context: language) {
                 misspelled.append(range)
                 remember(word, context())
-            } else if language == .czech, Self.hasNoDiacritics(word), !czechRestorations(of: word).isEmpty {
+            } else if language == .czech, !learned.contains(word), Self.hasNoDiacritics(word),
+                      !czechRestorations(of: word).isEmpty {
                 let wordContext = context()
                 guard hasLikelierAccentedForm(word, in: wordContext) else { continue }
                 misspelled.append(range)
@@ -107,7 +108,16 @@ public final class BilingualSpeller {
         candidates += czechRestorations(of: word).map { Candidate(text: $0, language: .czech, source: .restoration) }
         candidates += ColloquialCzech.standardForms(of: word).filter { dictionaries[.czech]?.isCorrect($0) == true }
             .map { Candidate(text: $0, language: .czech, source: .colloquial) }
+        candidates += capitalizationFixes(of: word)
         return ContextRanker.rank(word: word, candidates: candidates, context: context, models: models)
+    }
+
+    /// "monday" -> "Monday": a rejected lowercase word whose capitalized form a dictionary accepts.
+    private func capitalizationFixes(of word: String) -> [Candidate] {
+        guard word == word.lowercased(), !isCorrect(word) else { return [] }
+        let capitalized = word.prefix(1).uppercased() + word.dropFirst()
+        return dictionaries.filter { $0.value.isCorrect(capitalized) }
+            .map { Candidate(text: capitalized, language: $0.key, source: .capitalization) }
     }
 
     public func learn(_ word: String) {

@@ -68,7 +68,8 @@ public final class NativeGuessClient: NativeGuessProviding, @unchecked Sendable 
         lock.lock()
         defer { lock.unlock() }
         let wanted = words.filter { cache[$0] == nil && !pending.contains($0) }
-        guard !wanted.isEmpty, pending.count < Self.maxPendingWords, let input = runningInput() else { return }
+        // runningInput() first: restarting a dead helper is what clears a full `pending`.
+        guard !wanted.isEmpty, let input = runningInput(), pending.count < Self.maxPendingWords else { return }
         var data = Data()
         for word in wanted.prefix(Self.maxPendingWords - pending.count) {
             guard let line = try? JSONEncoder().encode(NativeGuessRequest(word: word)) else { continue }

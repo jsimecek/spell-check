@@ -73,6 +73,17 @@ private struct FakeModel: LanguageModelScoring {
         #expect(rank("Nemam", [("Nemám", .czech), ("nemam", .czech)]) == ["Nemám"])
     }
 
+    @Test func keepsCapitalizationFixOfTheTypedWord() {
+        let ranked = ContextRanker.rank(
+            word: "monday",
+            candidates: [Candidate(text: "Monday", language: .english, source: .capitalization),
+                         Candidate(text: "today", language: .english, source: .hunspell)],
+            context: nil,
+            models: [.english: FakeModel()]
+        )
+        #expect(ranked == ["Monday", "today"])
+    }
+
     @Test func showsAtMostFiveGuesses() {
         #expect(ContextRanker.maxGuesses == 5)
     }

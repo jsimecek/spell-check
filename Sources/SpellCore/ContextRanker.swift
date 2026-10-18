@@ -12,7 +12,7 @@ public struct WordContext: Equatable, Sendable {
 }
 
 public struct Candidate: Hashable, Sendable {
-    public enum Source: Sendable { case native, hunspell, restoration, colloquial, neighbor }
+    public enum Source: Sendable { case native, hunspell, restoration, colloquial, neighbor, capitalization }
 
     public let text: String
     public let language: Language
@@ -36,7 +36,8 @@ public enum ContextRanker {
         var best: [String: Double] = [:]
         let lowered = word.lowercased()
         let typedAllCaps = word == word.uppercased()
-        for candidate in candidates where isShowable(candidate.text, lowered: lowered, typedAllCaps: typedAllCaps) {
+        for candidate in candidates
+        where candidate.source == .capitalization || isShowable(candidate.text, lowered: lowered, typedAllCaps: typedAllCaps) {
             let edits = candidate.source == .colloquial
                 ? colloquialEdit
                 : Double(EditDistance.distance(folded, EditDistance.fold(candidate.text)) ?? 0)

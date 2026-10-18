@@ -168,6 +168,23 @@ import Testing
         speller.forget("Bflmpsvz")
         #expect(flagged("Ahoj Bflmpsvz") == ["Bflmpsvz"])
     }
+
+    @Test func learnedWordIsNotFlaggedForMissingAccents() {
+        #expect(flagged("Nemam cas, zavolam ti zitra.").contains("cas"))
+        speller.learn("cas")
+        #expect(!flagged("Nemam cas, zavolam ti zitra.").contains("cas"))
+    }
+
+    @Test func lowercaseProperNounGetsCapitalizedGuess() {
+        #expect(flagged("See you on monday.") == ["monday"])
+        #expect(speller.guesses(for: "monday", context: Self.english).first == "Monday")
+        #expect(speller.guesses(for: "praha", context: Self.czech).first == "Praha")
+        #expect(!speller.guesses(for: "cas", context: Self.czech).contains("Cas"))
+    }
+
+    @Test func acceptsDecomposedText() {
+        #expect(flagged("Příliš žluťoučký kůň úpěl ďábelské ódy.".decomposedStringWithCanonicalMapping).isEmpty)
+    }
 }
 
 private final class FakeNativeGuesses: NativeGuessProviding {

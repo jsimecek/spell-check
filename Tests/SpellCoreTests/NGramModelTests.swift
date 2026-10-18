@@ -87,4 +87,12 @@ import Testing
     @Test func rejectsCorruptData() {
         #expect(throws: (any Error).self) { try NGramModel(data: Data("nope".utf8)) }
     }
+
+    @Test func rejectsOverflowingEntryCount() {
+        var header = Data()
+        for value in [UInt64(NGramModel.magic) | UInt64(NGramModel.version) << 32, 0, .max] {
+            withUnsafeBytes(of: value.littleEndian) { header.append(contentsOf: $0) }
+        }
+        #expect(throws: NGramModelError.corrupt) { try NGramModel(data: header) }
+    }
 }

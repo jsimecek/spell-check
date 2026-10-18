@@ -39,6 +39,26 @@ import Testing
         #expect(!(try LearnedWords(storeURL: store, readOnlySources: []).contains("foo")))
     }
 
+    @Test func forgettingCapitalizedFormForgetsBothStoredForms() throws {
+        let learned = try LearnedWords(storeURL: store, readOnlySources: [])
+        try learned.add("Foo")
+        try learned.add("foo")
+        try learned.remove("Foo")
+        #expect(!learned.contains("Foo"))
+        #expect(!learned.contains("foo"))
+        #expect(!(try LearnedWords(storeURL: store, readOnlySources: []).contains("Foo")))
+    }
+
+    @Test func forgettingReadOnlyCapitalizedFormAlsoForgetsOwnLowercase() throws {
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent("czen-local-\(UUID().uuidString)")
+        try "Foo\n".write(to: source, atomically: true, encoding: .utf8)
+        let learned = try LearnedWords(storeURL: store, readOnlySources: [source])
+        try learned.add("foo")
+        try learned.remove("Foo")
+        #expect(!learned.contains("Foo"))
+        #expect(!(try LearnedWords(storeURL: store, readOnlySources: [source]).contains("Foo")))
+    }
+
     @Test func failedWriteOfMissingStoreIsReported() throws {
         // Missing store on the read-only system volume: loads fine, saving fails.
         let readOnlyVolume = URL(fileURLWithPath: "/System/czen-\(UUID().uuidString)/learned.txt")

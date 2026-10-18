@@ -45,10 +45,12 @@ public final class LearnedWords {
     /// Forgetting "Foo" forgets the learned "foo" that made it acceptable.
     public func remove(_ word: String) throws {
         let uncapitalized = word.prefix(1).lowercased() + word.dropFirst()
-        let stored = own.contains(word) || readOnly.contains(word) ? word : uncapitalized
-        let removedOwn = own.remove(stored) != nil
-        if readOnly.remove(stored) != nil { forgotten.insert(stored) }
-        else if !removedOwn { return }
+        var changed = false
+        for form in Set([word, uncapitalized]) {
+            if own.remove(form) != nil { changed = true }
+            if readOnly.remove(form) != nil { forgotten.insert(form); changed = true }
+        }
+        guard changed else { return }
         try save()
     }
 

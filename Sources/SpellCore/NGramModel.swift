@@ -32,8 +32,9 @@ public final class NGramModel: LanguageModelScoring {
             (raw.loadUnaligned(fromByteOffset: 0, as: UInt32.self), raw.loadUnaligned(fromByteOffset: 4, as: UInt32.self),
              raw.loadUnaligned(fromByteOffset: 8, as: UInt64.self), raw.loadUnaligned(fromByteOffset: 16, as: UInt64.self))
         }
+        let payload = data.count - Self.headerSize
         guard header.0 == Self.magic, header.1 == Self.version,
-              data.count == Self.headerSize + Int(header.3) * 12 else { throw NGramModelError.corrupt }
+              payload % 12 == 0, header.3 == UInt64(payload / 12) else { throw NGramModelError.corrupt }
         self.data = data
         totalTokens = header.2
         entryCount = Int(header.3)

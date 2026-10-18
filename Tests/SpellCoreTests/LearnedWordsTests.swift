@@ -31,6 +31,17 @@ import Testing
         #expect(try LearnedWords(storeURL: store, readOnlySources: [source]).contains("foo"))
     }
 
+    @Test func relearnedReadOnlyWordForgottenAgainStaysForgottenAfterReload() throws {
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent("czen-local-\(UUID().uuidString)")
+        try "foo\n".write(to: source, atomically: true, encoding: .utf8)
+        let learned = try LearnedWords(storeURL: store, readOnlySources: [source])
+        try learned.remove("foo")
+        try learned.add("foo")
+        try learned.remove("foo")
+        #expect(!learned.contains("foo"))
+        #expect(!(try LearnedWords(storeURL: store, readOnlySources: [source]).contains("foo")))
+    }
+
     @Test func forgettingCapitalizedFormForgetsLearnedLowercaseWord() throws {
         let learned = try LearnedWords(storeURL: store, readOnlySources: [])
         try learned.add("foo")

@@ -69,10 +69,8 @@ public final class NativeGuessClient: NativeGuessProviding, @unchecked Sendable 
     public func prefetch(_ words: [String]) {
         lock.lock()
         defer { lock.unlock() }
-        let wanted = words.filter {
-            $0.utf16.count <= Self.maxWordLength && cache[$0] == nil && !pending.contains($0)
-        }
-        // runningInput() first: restarting a dead helper is what clears a full `pending`.
+        let wanted = words.filter { $0.utf16.count <= Self.maxWordLength && cache[$0] == nil }
+        // runningInput() before checking `pending`: restarting a dead helper is what clears its stale entries.
         guard !wanted.isEmpty, let input = runningInput(), pending.count < Self.maxPendingWords else { return }
         var data = Data()
         for word in wanted where pending.count < Self.maxPendingWords {

@@ -13,6 +13,7 @@ public final class LearnedWords {
     private let storeWritable: Bool
     private var own: Set<String>
     private var forgotten: Set<String>
+    private let readOnlySourceWords: Set<String>
     private var readOnly: Set<String>
 
     public init(storeURL: URL, readOnlySources: [URL]) throws {
@@ -21,8 +22,8 @@ public final class LearnedWords {
         storeWritable = store.writable
         own = store.words.filter { !$0.hasPrefix(Self.forgottenMarker) }
         forgotten = Set(store.words.filter { $0.hasPrefix(Self.forgottenMarker) }.map { String($0.dropFirst()) })
-        readOnly = readOnlySources.reduce(into: Set<String>()) { $0.formUnion(Self.load($1)) }
-            .subtracting(forgotten)
+        readOnlySourceWords = readOnlySources.reduce(into: Set<String>()) { $0.formUnion(Self.load($1)) }
+        readOnly = readOnlySourceWords.subtracting(forgotten)
     }
 
     private static let forgottenMarker = "!"
@@ -48,7 +49,9 @@ public final class LearnedWords {
         var changed = false
         for form in Set([word, uncapitalized]) {
             if own.remove(form) != nil { changed = true }
-            if readOnly.remove(form) != nil { forgotten.insert(form); changed = true }
+            readOnly.remove(form)
+            // Also when re-learned after an earlier forget, so the source can't bring it back.
+            if readOnlySourceWords.contains(form), forgotten.insert(form).inserted { changed = true }
         }
         guard changed else { return }
         try save()

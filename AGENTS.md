@@ -22,6 +22,6 @@ macOS spell-checking service (NSSpellServer) for Czech + English. Swift package,
 - `NSSpellChecker` only discovers third-party servers inside a running `NSApplication` (plain CLI scripts do not see them).
 - Language id is `mul`, shown in the Spelling menu as "Multiple languages (CzEnSpell)". Apple's own services do not use `mul`.
 - `NSSpellServer` guess callbacks get only the word, so `BilingualSpeller` remembers each flagged word's sentence context. A re-check of the bare word (text views do that before the menu) must not overwrite it.
-- Return only `.spelling` results from the unified check: no `.correction`, so nothing gets auto-replaced.
+- The unified check returns `.spelling` results plus one `.orthography` result (claims `mul`, so right-click guesses come back to us). Never `.correction`, so nothing gets auto-replaced.
 - Never log user text (only counts and timings).
 - Third-party data (GPL cs_CZ dictionary, CC-BY-SA frequency lists) is fetched with pinned commits + sha256, never committed.

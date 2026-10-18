@@ -76,4 +76,19 @@ import Testing
         c.prefetch(["new"])
         #expect(waitForCache(c, "new")?.czech == ["new-cs"])
     }
+
+    @Test func retriesWordThatWasPendingWhenHelperDied() throws {
+        let marker = FileManager.default.temporaryDirectory.appendingPathComponent("czen-helper-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: marker) }
+        // First run dies without answering; later runs echo.
+        let c = client("""
+        if [ ! -e '\(marker.path)' ]; then touch '\(marker.path)'; read -r line; exit 0; fi
+        \(Self.echoHelper)
+        """)
+        c.prefetch(["word"])
+        Thread.sleep(forTimeInterval: 0.2)
+        c.prefetch(["word"])  // dead helper: may only surface as a failed write
+        c.prefetch(["word"])
+        #expect(waitForCache(c, "word")?.czech == ["word-cs"])
+    }
 }

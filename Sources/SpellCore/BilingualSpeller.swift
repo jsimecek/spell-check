@@ -120,8 +120,8 @@ public final class BilingualSpeller {
     }
 
     /// "monday" -> "Monday", "usa" -> "USA": a rejected lowercase word whose capitalized form a dictionary accepts.
-    /// Hunspell accepts any word in all caps, so all caps is offered only when "Usa" is rejected,
-    /// and only without an accent fix, so "cas" gets "čas", not "CAS".
+    /// Hunspell accepts the all-caps form of any word it knows ("PRAHA" via "Praha"), so all caps is offered
+    /// only when "Usa" is rejected, and only without an accent fix, so "cas" gets "čas", not "CAS".
     private func capitalizationFixes(of word: String) -> [Candidate] {
         guard word == word.lowercased(), !isCorrect(word) else { return [] }
         let capitalized = word.prefix(1).uppercased() + word.dropFirst()

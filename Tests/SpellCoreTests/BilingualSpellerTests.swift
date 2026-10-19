@@ -158,6 +158,27 @@ import Testing
         #expect(speller.guesses(for: "tomorow").first == "tomorrow")
     }
 
+    @Test(arguments: [("ybraně", "zbraně"), ("yítra", "zítra"), ("necám", "nechám"), ("mislím", "myslím")])
+    func commonCzechSlipsAreTheTopGuess(_ word: String, _ expected: String) {
+        #expect(speller.guesses(for: word, context: Self.czech).first == expected)
+    }
+
+    @Test func englishSentenceDoesNotGetCzechGuesses() {
+        _ = speller.misspellings(in: "It runs automaticly every night.")
+        #expect(speller.guesses(for: "automaticly").first == "automatically")
+        #expect(speller.guesses(for: "acord", context: Self.english).first == "accord")
+    }
+
+    @Test func noHyphenatedSplitsOnTop() {
+        #expect(!speller.guesses(for: "absail", context: Self.english).prefix(3).contains { $0.contains("-") })
+    }
+
+    @Test func shortUnaccentedCzechIsDetectedAsCzech() {
+        #expect(speller.language(ofSentence: "Co delas?") == .czech)
+        #expect(speller.language(ofSentence: "Deploy probehl.") == .czech)
+        #expect(flagged("To je dobrej napad, kterej jsi mel, ted to vim.").contains("ted"))
+    }
+
     @Test func colloquialCzechGetsStandardForms() {
         _ = speller.misspellings(in: "To je dobrej napad, kterej jsi mel.")
         #expect(speller.guesses(for: "dobrej").first == "dobrý")

@@ -1,0 +1,141 @@
+# language<TAB>sentence; code-mixed lines are labelled by their grammar
+cs	Ahoj jak se mas
+cs	Mam hlad
+cs	Jdu domu
+cs	Diky moc
+cs	Na shledanou
+cs	Je to hotovo
+cs	Kde jsi
+cs	Neni zac
+cs	Uz jdu
+cs	Dobre
+cs	Taky
+cs	Hotovo
+cs	Super napad
+cs	Zavolej mi
+cs	To je ok
+cs	Posli mi to
+cs	Mas cas
+cs	Jsem doma
+cs	Uvidime
+cs	Nevim
+cs	Pujdu pozdeji
+cs	Mam radost
+cs	Kolik to stoji
+cs	Prijdu za chvili
+cs	Nemam cas
+cs	Mam te rad
+cs	Dobrou noc
+cs	Co delas
+cs	Jak se mate
+cs	Dekuji
+cs	Ano
+cs	Ne dekuji
+cs	Zitra
+cs	Jsem unaveny
+cs	Je mi zima
+cs	Muzu prijit
+cs	Pockej
+cs	Spravne
+cs	Funguje to
+cs	Mas pravdu
+cs	To nevadi
+cs	Promin
+cs	Tesim se
+cs	Hodne stesti
+cs	Dobra prace
+cs	Opravil jsem bug
+cs	Mergnu ten pull request
+cs	Deploy probehl
+cs	Udelam review
+cs	Pustim testy
+cs	Dneska nevim jestli zitra prijdu, protoze mam praci.
+cs	Ahoj, prosim te muzes mi to poslat?
+cs	Zitra pujdeme do kina s kamarady.
+cs	To je dobrej napad, kterej jsi mel, ted to vim.
+cs	Příliš žluťoučký kůň úpěl ďábelské ódy.
+cs	Pošli mi ten pull request a já udělám review.
+cs	Nemam cas, zavolam ti zitra.
+cs	Rano jsem musel vstat brzy.
+cs	Jsem spokojeny s praci.
+cs	Koupili jsme nový byt v Praze.
+cs	Mám rád kafe a čaj.
+cs	Včera jsem byl v kině a film byl skvělý.
+cs	Ten build zase spadl na testech, podivas se na to?
+cs	Pridal jsem novy endpoint do API a upravil dokumentaci.
+cs	Meeting se presouva na ctvrtek odpoledne.
+cs	Můžeš mi poslat ten link na dashboard?
+cs	Nevim, jestli to stihnu do patku.
+cs	Bylo to fakt dobry, dekuju.
+cs	Kdy mas cas na call?
+cs	Ten release jsme odlozili na pristi tyden.
+cs	Ted to nejde, mam meeting.
+cs	Problem je v cache, ne v databazi.
+cs	Mel bys to zkusit znovu.
+cs	Vim, ze to neni idealni.
+cs	Musim jit, pak ti napisu.
+en	How are you
+en	I am hungry
+en	Going home
+en	Thanks a lot
+en	See you
+en	It is done
+en	Where are you
+en	No problem
+en	Coming
+en	Fine
+en	Me too
+en	Done
+en	Great idea
+en	Call me
+en	That is ok
+en	Send it to me
+en	Got time
+en	I am home
+en	We will see
+en	I do not know
+en	I will come later
+en	I am happy
+en	How much is it
+en	Be right there
+en	No time
+en	Love you
+en	Good night
+en	What are you doing
+en	How do you do
+en	Thank you
+en	Yes
+en	No thanks
+en	Tomorrow
+en	I am tired
+en	I am cold
+en	Can I come
+en	Wait
+en	Correct
+en	It works
+en	You are right
+en	Never mind
+en	Sorry
+en	Looking forward
+en	Good luck
+en	Nice work
+en	Fixed the bug
+en	I will merge the pull request
+en	Deploy went fine
+en	I will do the review
+en	Running the tests
+en	I definately recieve teh mail tomorow.
+en	I met Ted at the mall, no problem.
+en	Check https://example.com or mail jan@example.com about the API.
+en	The build failed again on the integration tests.
+en	Can you send me the link to the dashboard?
+en	We postponed the release to next week.
+en	The problem is in the cache, not in the database.
+en	I am not sure I can finish it by Friday.
+en	Let me know when you have time for a call.
+en	The meeting moved to Thursday afternoon.
+en	Pavel and Jana from Praha will join us.
+en	Please review the changes in the parser.
+en	We should mention this in the docs.
+en	It was a great talk, thanks.
+en	I will write to you later.

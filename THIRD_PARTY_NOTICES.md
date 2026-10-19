@@ -32,6 +32,13 @@ This is a summary, not legal advice. The upstream license texts are authoritativ
 - License: the Leipzig Terms of Usage (<https://wortschatz.uni-leipzig.de/en/usage>) say the downloadable corpora are under CC BY, and also that the data is free for private and scientific use under CC BY-NC, with commercial use needing written consent. Ask the project before any commercial use. These terms were read from search-engine copies of that page, because the page itself is behind a bot check.
 - Citation: D. Goldhahn, T. Eckart, U. Quasthoff: Building Large Monolingual Dictionaries at the Leipzig Corpora Collection: From 100 to 200 Languages. Proceedings of LREC 2012.
 
+## Benchmark data (test only, never in the bundle)
+
+`scripts/fetch-benchmark.sh` downloads these into `Benchmarks/` (sha256-pinned, gitignored) for the opt-in benchmark in `Tests/SpellCoreTests/BenchmarkTests.swift`. They are not in this repository and not in the built bundle.
+
+- Wikipedia, "Lists of common misspellings/For machines", revision `1199637275` (<https://en.wikipedia.org/w/index.php?oldid=1199637275>). License: CC BY-SA 4.0, per Wikipedia's terms; authors are listed in the page history.
+- `aspell.dat` from Roger Mitton's corpora of misspellings at Birkbeck, University of London (<https://www.dcs.bbk.ac.uk/~ROGER/corpora.html>), derived from Kevin Atkinson's GNU Aspell test list. The page states no license; it is used here only as local test input.
+
 ## Note for forks
 
 `build/CzEnSpell.service` contains the MIT-licensed code, compiled Hunspell and the data files above, but none of their license texts. If you share a built bundle, you take on the obligations of every component in it (for example the GPL text and source offer for the Czech dictionary, the SCOWL notices, CC BY-SA and CC BY attribution, and the Leipzig non-commercial clause).

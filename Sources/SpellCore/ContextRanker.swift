@@ -23,26 +23,25 @@ struct Candidate: Hashable, Sendable {
 }
 
 /// Noisy-channel style ranking: how well a candidate fits between its neighbours (language model)
-/// minus how far it is from what was typed. Accent-only differences are free.
+/// minus how plausible a slip it is (`ErrorModel`).
 enum ContextRanker {
     static let maxGuesses = 5
-    static let editPenalty = 10.0
+    static let editPenalty = 12.0
     /// A colloquial-to-standard rewrite ("kterej" -> "který") counts as half an edit.
     static let colloquialEdit = 0.5
-    static let foreignLanguagePenalty = 3.0
+    static let foreignLanguagePenalty = 8.0
     static let nativeBonus = 0.5
     static let unknownLanguageModelScore = -30.0
 
     static func rank(
         word: String, candidates: [Candidate], context: WordContext?, models: [Language: any LanguageModelScoring]
     ) -> [String] {
-        let typed = EditDistance.fold(word)
         let lowered = word.lowercased()
         let typedAllCaps = word == word.uppercased()
         var bestScores: [String: Double] = [:]
         for candidate in candidates
         where candidate.source == .capitalization || isShowable(candidate.text, lowered: lowered, typedAllCaps: typedAllCaps) {
-            let candidateScore = score(of: candidate, typed: typed, context: context, models: models)
+            let candidateScore = score(of: candidate, typed: word, context: context, models: models)
             bestScores[candidate.text] = max(bestScores[candidate.text] ?? -.infinity, candidateScore)
         }
         // "Muzea" next to "muzea" for a lowercase word is noise; capitalized-only candidates (names) stay.
@@ -58,12 +57,10 @@ enum ContextRanker {
     }
 
     private static func score(
-        of candidate: Candidate, typed: [Character], context: WordContext?, models: [Language: any LanguageModelScoring]
+        of candidate: Candidate, typed: String, context: WordContext?, models: [Language: any LanguageModelScoring]
     ) -> Double {
         let edits =
-            candidate.source == .colloquial
-            ? colloquialEdit
-            : Double(EditDistance.distance(typed, EditDistance.fold(candidate.text)) ?? 0)
+            candidate.source == .colloquial ? colloquialEdit : ErrorModel.cost(typed: typed, candidate: candidate.text)
         var score =
             models[candidate.language]?.contextScore(
                 candidate.text.lowercased(), left: context?.left, right: context?.right

@@ -1,0 +1,99 @@
+# typed<TAB>expected<TAB>sentence containing the typed word (optional)
+dekuju	děkuju	Dekuju za pomoc.
+uz	už	Uz jsem doma.
+jeste	ještě	Jeste nevím, kdy přijdu.
+muzeme	můžeme	Muzeme se sejít zítra?
+sejit	sejít	Můžeme se sejit zítra?
+skvely	skvělý	To je skvely nápad.
+pockej	počkej	Pockej na mě před školou.
+vcera	včera	Kde jsi byl vcera večer?
+zpravu	zprávu	Poslal jsem ti zpravu.
+musim	musím	Musim jít do práce.
+prace	práce	Musím jít do prace.
+rano	ráno	Dobré rano všem.
+drahe	drahé	Je to moc drahe.
+tesim	těším	Tesim se na víkend.
+vikend	víkend	Těším se na vikend.
+udelal	udělal	Udelal jsem chybu.
+nechapu	nechápu	Nechapu, co tím myslíš.
+zavolam	zavolám	Zavolam ti později.
+pozdeji	později	Zavolám ti pozdeji.
+diky	díky	Diky moc za radu.
+stoji	stojí	Kolik to stoji?
+cekam	čekám	Cekam na tebe u vchodu.
+nemuzu	nemůžu	Nemuzu dnes přijít.
+prijit	přijít	Nemůžu dnes prijit.
+rekni	řekni	Rekni mi pravdu.
+uvidime	uvidíme	Uvidime se v pátek.
+patek	pátek	Uvidíme se v patek.
+prectu	přečtu	Prectu si to večer.
+pocitac	počítač	Koupil jsem nový pocitac.
+spatne	špatně	Spatne jsem spal.
+stastny	šťastný	Stastny nový rok.
+prset	pršet	Zítra bude prset.
+ctu	čtu	Ctu zajímavou knihu.
+vecer	večer	Přečtu si to vecer.
+mesic	měsíc	Byl jsem tam celý mesic.
+chtel	chtěl	Chtel jsem ti to říct.
+dulezite	důležité	To je velmi dulezite.
+mislím	myslím	Mislím, že ano.
+bidlím	bydlím	Bidlím v Praze.
+mišlenka	myšlenka	To je dobrá mišlenka.
+jazik	jazyk	Učím se nový jazik.
+slišel	slyšel	Slišel jsem to v rádiu.
+ribníku	rybníku	Šli jsme k ribníku.
+visoký	vysoký	Je to visoký strom.
+mlin	mlýn	Starý mlin u řeky.
+brzi	brzy	Uvidíme se brzi.
+víchod	východ	Hledám víchod z budovy.
+zbitek	zbytek	Zbitek si nech.
+obicejně	obyčejně	Obicejně vstávám v šest.
+nykdy	nikdy	To bych nykdy neřekl.
+fizika	fyzika	Fizika mě bavila.
+sistém	systém	Nový sistém funguje.
+yítra	zítra	Uvidíme se yítra.
+yatím	zatím	Yatím nevím.
+yase	zase	Yase prší.
+yrovna	zrovna	Yrovna jsem dorazil.
+ypráva	zpráva	Přišla mi ypráva.
+ydravím	zdravím	Ydravím všechny.
+yapomněl	zapomněl	Yapomněl jsem klíče.
+nechcci	nechci	Nechcci tam jít.
+poděkkovat	poděkovat	Chci ti poděkkovat.
+necám	nechám	Necám to na tobě.
+cyba	chyba	To byla moje cyba.
+codím	chodím	Codím do posilovny.
+zapoměl	zapomněl	Zapoměl jsem heslo.
+zapoměla	zapomněla	Zapoměla si deštník.
+vzpoměl	vzpomněl	Vzpoměl jsem si na tebe.
+mněstě	městě	Bydlím ve velkém mněstě.
+oběvil	objevil	Oběvil se tam znovu.
+zkočit	skočit	Musíš zkočit do vody.
+skusit	zkusit	Můžeš to skusit znovu.
+spívám	zpívám	Rád si spívám.
+kamený	kamenný	Starý kamený most.
+dení	denní	Moje dení rutina.
+cený	cenný	Je to cený obraz.
+ktreý	který	Ten, ktreý přišel.
+nveím	nevím	Nveím, kde to je.
+prosmí	prosím	Prosmí tě, pomoz mi.
+pmoc	pomoc	Potřebuju pmoc.
+dobrej	dobrý	To je dobrej nápad.
+velkej	velký	Máme velkej problém.
+mladej	mladý	Je to mladej kluk.
+vokno	okno	Otevři vokno.
+vodpoledne	odpoledne	Přijdu vodpoledne.
+kterej	který	Ten kluk, kterej tam byl.
+nevim	nevím	Dneska nevim, jestli přijdu.
+protoze	protože	Nepřijdu, protoze mám práci.
+mam	mám	Nemám čas, mam práci.
+cas	čas	Nemám cas, zavolám ti zítra.
+ted	teď	Teď ne, ted to nejde.
+vim	vím	Já to vim moc dobře.
+mel	měl	Ten nápad, který jsi mel.
+te	tě	Prosím te, pomoz mi.
+muzes	můžeš	Prosím tě, muzes mi to poslat?
+prijdu	přijdu	Zítra prijdu pozdě.
+kamarady	kamarády	Půjdeme do kina s kamarady.
+pujdeme	půjdeme	Zítra pujdeme do kina.
+praci	práci	Hledám novou praci.

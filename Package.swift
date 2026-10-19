@@ -19,7 +19,7 @@ let package = Package(
         .executableTarget(name: "CzEnSpellServer", dependencies: ["SpellCore"]),
         .executableTarget(name: "spellprobe"),
         .executableTarget(name: "ngram-build", dependencies: ["SpellCore"]),
-        .testTarget(name: "SpellCoreTests", dependencies: ["SpellCore"]),
+        .testTarget(name: "SpellCoreTests", dependencies: ["SpellCore"], exclude: ["Benchmark"]),
     ],
     cxxLanguageStandard: .cxx17
 )

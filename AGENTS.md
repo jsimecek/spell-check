@@ -5,6 +5,7 @@ macOS spell-checking service (NSSpellServer) for Czech + English. Swift package,
 ## Commands
 - `scripts/fetch-dictionaries.sh`: download pinned dictionaries and frequency lists and build the n-gram models into `Dictionaries/`. Required before `swift test`. Network, ~400 MB of corpora on first run.
 - `swift build`, `swift test`: unit tests plus integration tests against the real dictionaries.
+- `scripts/fetch-benchmark.sh`, then `CZEN_EVAL=1 swift test -c release -Xswiftc -enable-testing --filter BenchmarkTests`: opt-in quality benchmark (guess top-1/top-5, sentence language, false positives, timings). Tune on the `tune` rows, judge on `holdout`; `CZEN_EVAL_VERBOSE=1` lists misses.
 - `scripts/build.sh` → `build/CzEnSpell.service` (ad-hoc signed); `scripts/install.sh` / `scripts/uninstall.sh` (user-level only, `~/Library/Services`).
 - `scripts/probe.sh [mul|auto|cs|en]`: runs `scripts/probe-sentences.txt` through `NSSpellChecker` like a real app.
 
@@ -12,7 +13,7 @@ macOS spell-checking service (NSSpellServer) for Czech + English. Swift package,
 - `Sources/SpellCore`: all logic. Keep it AppKit-free and testable. Public API is only what the other targets use: `BilingualSpeller`, `LearnedWords`, `NativeGuessClient` and its request/response types, `WordScanner`, `NGramModel` (for `ngram-build`), `WordContext`, `Language`, error enums. Everything else is internal; tests use `@testable import`.
   - `BilingualSpeller`: entry point (check, guesses, learn/forget).
   - `HunspellDictionary`, `FrequencyList`, `NGramModel` + `NGramTokenizer`: data access. `NGramTokenizer` is shared by the model builder and the runtime.
-  - `LanguageDetector`, `DiacriticExpander`, `ColloquialCzech`, `EditDistance`, `ContextRanker`: detection, candidates, ranking.
+  - `LanguageDetector`, `DiacriticExpander`, `ColloquialCzech`, `EditDistance`, `ErrorModel`, `ContextRanker`: detection, candidates, ranking. Sentence language is decided in `BilingualSpeller` (n-gram word frequencies first, `LanguageDetector` as tie-breaker).
   - `WordScanner`: which words to check (skips URLs, emails, code-like tokens, acronyms).
   - `NativeGuessClient`: pipe to the Apple helper process. `LearnedWords`: user dictionary.
   - `String+Letters.swift`: small shared string helpers (first-letter case, `hasDiacritics`).
@@ -42,4 +43,5 @@ macOS spell-checking service (NSSpellServer) for Czech + English. Swift package,
 ## Verifying a change
 1. `swift test` (needs `Dictionaries/`).
 2. Local end-to-end, on a Mac with a GUI session: `scripts/build.sh`, `scripts/install.sh`, wait a few seconds, `scripts/probe.sh mul` once as warm-up, then `scripts/probe.sh mul` again and compare its output with a run from before the change (ignore the `[N ms]` timings).
-3. Optional: `shellcheck scripts/*.sh` if scripts changed.
+3. When ranking, detection or candidates change: run the benchmark before and after and compare the holdout rows.
+4. Optional: `shellcheck scripts/*.sh` if scripts changed.

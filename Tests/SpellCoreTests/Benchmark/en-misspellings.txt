@@ -1,0 +1,89 @@
+# typed<TAB>expected<TAB>sentence containing the typed word (optional)
+definately	definitely	I will definately be there.
+seperate	separate	Keep them in seperate folders.
+occured	occurred	The error occured twice.
+untill	until	Wait untill tomorrow.
+wich	which	The one wich I sent you.
+becuase	because	I left becuase it was late.
+thier	their	They forgot thier keys.
+goverment	government	The goverment announced it today.
+accomodate	accommodate	We can accomodate four people.
+neccessary	necessary	Is that really neccessary?
+existance	existence	The existance of the bug is known.
+begining	beginning	Start from the begining.
+beleive	believe	I beleive you.
+recomend	recommend	I recomend this book.
+tommorrow	tomorrow	See you tommorrow.
+adress	address	Send it to my adress.
+enviroment	environment	The test enviroment is down.
+occurence	occurrence	Every occurence is logged.
+succesful	successful	The build was succesful.
+wierd	weird	That is wierd.
+truely	truly	Yours truely.
+realy	really	It is realy fast.
+finaly	finally	It finaly works.
+basicly	basically	It is basicly done.
+arguement	argument	The first arguement is the path.
+calender	calendar	Check your calender.
+concious	conscious	It was a concious choice.
+embarass	embarrass	Do not embarass me.
+independant	independent	These are independant changes.
+knowlege	knowledge	Shared knowlege helps.
+maintainance	maintenance	Planned maintainance tonight.
+noticable	noticeable	The change is noticable.
+persue	pursue	We will persue this later.
+posession	possession	It is in my posession.
+publically	publicly	It was publically announced.
+refered	referred	He refered to the docs.
+relevent	relevant	Only the relevent parts.
+rythm	rhythm	Keep the rythm.
+sucess	success	It was a big sucess.
+tounge	tongue	Bite your tounge.
+writting	writing	I am writting tests.
+fucntion	function	Call the fucntion twice.
+retrun	return	Add a retrun statement.
+lenght	length	Check the lenght first.
+widht	width	Set the widht to auto.
+heigth	height	The heigth is wrong.
+pubilsh	publish	Please pubilsh the package.
+depoly	deploy	We depoly on Friday.
+comit	commit	Make a small comit.
+reveiw	review	I will reveiw it.
+databse	database	The databse is slow.
+reqeust	request	Send the reqeust again.
+repsonse	response	The repsonse was empty.
+pakage	package	Install the pakage first.
+dependecy	dependency	Remove the dependecy.
+recieve	receive	I did not recieve the mail.
+teh	the	Open teh file.
+tomorow	tomorrow	Let us talk tomorow.
+acheive	achieve	We can acheive that.
+agressive	aggressive	The cache is too agressive.
+apparantly	apparently	It apparantly failed.
+buisness	business	It is a buisness decision.
+collegue	colleague	Ask a collegue.
+comming	coming	Are you comming?
+completly	completely	It is completly broken.
+diffrent	different	That is a diffrent issue.
+excercise	exercise	A good excercise.
+foriegn	foreign	A foriegn key.
+freind	friend	My freind wrote it.
+gaurd	guard	Add a gaurd clause.
+happend	happened	What happend here?
+immediatly	immediately	Fix it immediatly.
+interupt	interrupt	Do not interupt the build.
+libary	library	Update the libary.
+mispell	misspell	I often mispell words.
+paramter	parameter	The paramter is optional.
+peice	piece	A peice of code.
+prefered	preferred	The prefered option.
+priviledge	privilege	A missing priviledge.
+probaly	probably	It is probaly cached.
+quesiton	question	A good quesiton.
+remeber	remember	I do not remeber.
+similiar	similar	A similiar bug.
+strenght	strength	The strenght of it.
+suprise	surprise	What a suprise.
+thru	through	Go thru the list.
+usefull	useful	That is usefull.
+varialbe	variable	Rename the varialbe.

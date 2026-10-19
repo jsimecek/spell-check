@@ -1,0 +1,45 @@
+# Correct text; every flagged word is a false positive.
+Příliš žluťoučký kůň úpěl ďábelské ódy.
+Zítra půjdeme do kina s kamarády, protože máme volno.
+Koupili jsme nový byt v Praze.
+Dal jsem mu knihu.
+To je pro tebe.
+Pak se uvidí.
+Jdu na poštu.
+Mám rád kafe a čaj.
+Můžeš mi to poslat zítra?
+Byl jsem tam se sestrou.
+Pošli mi ten pull request a já udělám review.
+Ten build zase spadl na testech, podíváš se na to?
+Přidal jsem nový endpoint do API a upravil dokumentaci.
+Meeting se přesouvá na čtvrtek odpoledne.
+Nevím, jestli to stihnu do pátku.
+Problém je v cache, ne v databázi.
+Měl bys to zkusit znovu.
+Vím, že to není ideální.
+Musím jít, pak ti napíšu.
+Byli jsme na horách a bylo tam krásně.
+Děti si hrály na zahradě až do večera.
+Na stole ležela kniha, kterou jsem dlouho hledal.
+V pondělí ráno máme poradu s klientem.
+Tohle rozhodnutí nebylo jednoduché.
+Večer jsme seděli u ohně a povídali si.
+Ten film byl lepší, než jsem čekal.
+Pes běžel přes louku k lesu.
+Kup prosím chleba a mléko.
+Nemám čas, zavolám ti zítra.
+Chtěl bych se zeptat na tu fakturu.
+I will receive the mail tomorrow.
+I met Ted at the mall, no problem.
+The build failed again on the integration tests.
+Can you send me the link to the dashboard?
+We postponed the release to next week.
+The problem is in the cache, not in the database.
+Let me know when you have time for a call.
+The meeting moved to Thursday afternoon.
+Please review the changes in the parser.
+We should mention this in the docs.
+She sat on the sofa and read a book.
+The team ran a quick test and then went home.
+My brother lives in a small town by the sea.
+We had pasta for dinner and watched a movie.

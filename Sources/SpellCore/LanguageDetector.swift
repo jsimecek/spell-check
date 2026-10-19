@@ -3,7 +3,6 @@ import NaturalLanguage
 /// Czech or English, as judged by Apple's language recognizer.
 enum LanguageDetector {
     static let minimumConfidence = 0.6
-    static let strongConfidence = 0.9
     static let minimumLetters = 4
 
     static func detect(_ text: String) -> Language? {

@@ -92,6 +92,23 @@ private struct FakeModel: LanguageModelScoring {
         #expect(ContextRanker.maxGuesses == 5)
     }
 
+    @Test func typedAccentIsEvidence() {
+        let cs = ["jistý": -10.0, "jisti": -14.0]
+        #expect(rank("jistí", [("jisti", .czech), ("jistý", .czech)], cs: cs).first == "jistý")
+    }
+
+    @Test func foreignCandidateLosesInAKnownLanguage() {
+        let english = WordContext(language: .english, left: nil, right: nil)
+        let ranked = rank(
+            "automaticly", [("automaticky", .czech), ("automatically", .english)], context: english,
+            cs: ["automaticky": -14], en: ["automatically": -12])
+        #expect(ranked.first == "automatically")
+    }
+
+    @Test func splitLosesToAOneLetterFix() {
+        #expect(rank("asign", [("a sign", .english), ("assign", .english)]).first == "assign")
+    }
+
     @Test func colloquialStandardFormCountsAsNearlyFree() {
         let ranked = ContextRanker.rank(
             word: "kterej",

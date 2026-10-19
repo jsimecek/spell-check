@@ -6,6 +6,9 @@ public final class BilingualSpeller {
     /// Log-likelihood margin by which an accented form must beat a valid accentless word
     /// ("nemam" -> "nemám") before the word is flagged; lower flags more.
     static let missingAccentMargin = 3.0
+    /// Log-likelihood ratio at which word frequencies alone decide a sentence's language.
+    static let decisiveLanguageEvidence = 1.0
+    static let maxWordLanguageEvidence = 6.0
     private static let neighborDistance = 2
     private static let maxRememberedContexts = 2000
     private static let maxCachedRestorations = 5000
@@ -109,7 +112,7 @@ public final class BilingualSpeller {
     public func guesses(for word: String, context explicitContext: WordContext? = nil) -> [String] {
         let context =
             explicitContext ?? rememberedContext(of: word)
-            ?? WordContext(language: LanguageDetector.detect(word), left: nil, right: nil)
+            ?? WordContext(language: language(ofSentence: word), left: nil, right: nil)
         return ContextRanker.rank(word: word, candidates: candidates(for: word), context: context, models: models)
     }
 
@@ -223,40 +226,40 @@ public final class BilingualSpeller {
         return languages
     }
 
-    /// The recognizer's answer, overruled by dictionary evidence when it is unsure.
-    private func language(ofSentence tokens: [NGramTokenizer.Token], in text: NSString) -> Language? {
-        guard let first = tokens.first, let last = tokens.last else { return nil }
-        let span = NSRange(location: first.range.location, length: NSMaxRange(last.range) - first.range.location)
-        let recognized = LanguageDetector.hypothesis(text.substring(with: span))
-        if let recognized, recognized.confidence >= LanguageDetector.strongConfidence {
-            return recognized.language
-        }
-        let votes = dictionaryVotes(for: tokens, in: text)
-        if votes.czech != votes.english {
-            return votes.czech > votes.english ? .czech : .english
-        }
-        if let recognized, recognized.confidence >= LanguageDetector.minimumConfidence {
-            return recognized.language
-        }
-        return nil
+    func language(ofSentence sentence: String) -> Language? {
+        language(ofSentence: NGramTokenizer.tokens(in: sentence), in: sentence as NSString)
     }
 
-    /// Counts words only one dictionary accepts; Czech typed without accents ("prijdu") votes Czech.
-    private func dictionaryVotes(for tokens: [NGramTokenizer.Token], in text: NSString) -> (czech: Int, english: Int) {
-        var votes = (czech: 0, english: 0)
-        for token in tokens {
-            let word = text.substring(with: token.range)
-            let isCzech = dictionaries[.czech]?.isCorrect(word) == true
-            let isEnglish = dictionaries[.english]?.isCorrect(word) == true
-            if isCzech, !isEnglish {
-                votes.czech += 1
-            } else if !isCzech, !isEnglish, !czechRestorations(of: word).isEmpty {
-                votes.czech += 1
-            } else if isEnglish, !isCzech {
-                votes.english += 1
-            }
+    /// Word-frequency evidence first; Apple's recognizer only when the words do not decide.
+    private func language(ofSentence tokens: [NGramTokenizer.Token], in text: NSString) -> Language? {
+        guard let first = tokens.first, let last = tokens.last else { return nil }
+        let ratio = czechLikelihoodRatio(of: tokens, in: text)
+        if abs(ratio) >= Self.decisiveLanguageEvidence { return ratio > 0 ? .czech : .english }
+        let span = NSRange(location: first.range.location, length: NSMaxRange(last.range) - first.range.location)
+        guard let recognized = LanguageDetector.hypothesis(text.substring(with: span)),
+            recognized.confidence >= LanguageDetector.minimumConfidence
+        else { return nil }
+        return recognized.language
+    }
+
+    /// log P(words | Czech) - log P(words | English) from the unigram counts; positive means Czech.
+    /// A word English rejects counts as its commonest Czech accented form ("prijdu" as "přijdu"), and
+    /// each word's say is capped so one English term ("pull request") cannot outvote a Czech sentence.
+    private func czechLikelihoodRatio(of tokens: [NGramTokenizer.Token], in text: NSString) -> Double {
+        guard let czech = models[.czech], let english = models[.english] else { return 0 }
+        let czechTotal = log(Double(max(czech.totalTokens, 1)))
+        let englishTotal = log(Double(max(english.totalTokens, 1)))
+        return tokens.reduce(0) { ratio, token in
+            let original = text.substring(with: token.range)
+            // Restoring English words would cost thousands of Hunspell lookups each on every check.
+            let isEnglish = dictionaries[.english]?.isCorrect(original.replacingOccurrences(of: "\u{2019}", with: "'")) == true
+            let restorations = isEnglish ? [] : czechRestorations(of: original)
+            let forms = [token.word] + restorations.map { $0.lowercased() }
+            let czechCount = forms.map(czechCount(of:)).max() ?? 0
+            let czechLog = log(Double(czechCount) + 0.5) - czechTotal
+            let englishLog = log(Double(english.count(token.word)) + 0.5) - englishTotal
+            return ratio + min(max(czechLog - englishLog, -Self.maxWordLanguageEvidence), Self.maxWordLanguageEvidence)
         }
-        return votes
     }
 
     // MARK: - Missing accents

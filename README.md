@@ -51,9 +51,10 @@ Then set **Spelling** back to **Automatic by Language** in the same settings she
 
 - The service registers the language `mul` with macOS through `NSSpellServer`. Apps that use the system checker (Cocoa text views, WebKit in Safari and Mail) send their spelling requests to it.
 - A word is correct if the Czech or the English Hunspell dictionary accepts it. In Czech text, an English-only word with a valid accented Czech form (`ted`, `vim`, `problem`) is still flagged.
-- Each sentence is classified as Czech or English with Apple's `NLLanguageRecognizer`, corrected by dictionary evidence when it is unsure.
+- Each sentence is classified as Czech or English by how common its words are in each language (Czech typed without accents counts as its accented form), with Apple's `NLLanguageRecognizer` as the tie-breaker.
 - Suggestions come from Hunspell, accent restoration (`muzes` → `můžeš`), standard forms of spoken Czech (`kterej` → `který`), near-miss common words, and Apple's own cs/en dictionaries (asked by a helper process, because Apple's checker stalls when called from inside a spell service).
 - A word-pair model built from the Leipzig corpora ranks suggestions by how well they fit between the neighbouring words, so `prosim te` suggests `tě` and `mam praci` suggests `práci`.
+- Typical slips cost less than random edits: a left-out accent is free, an accent you typed counts, and i/y, the y/z keyboard-layout swap, doubled letters and swapped letters are cheap.
 - In Czech sentences, a valid word that is missing accents is flagged when the accented form fits much better (`Nemam cas` → `Nemám čas`). A rare correct word is occasionally flagged; that is the accepted trade-off.
 - At most 5 suggestions. It only underlines and suggests, it never replaces text on its own.
 
@@ -77,6 +78,8 @@ Then set **Spelling** back to **Automatic by Language** in the same settings she
 scripts/fetch-dictionaries.sh   # required once before swift test
 swift build
 swift test                      # unit tests plus integration tests against the real dictionaries
+scripts/fetch-benchmark.sh      # optional: English misspelling lists for the quality benchmark
+CZEN_EVAL=1 swift test -c release -Xswiftc -enable-testing --filter BenchmarkTests
 ```
 
 End-to-end check on your Mac: `scripts/build.sh`, `scripts/install.sh`, then `scripts/probe.sh mul` twice (the first run warms up the service). `scripts/probe.sh auto`, `cs` and `en` show what the native checker does for comparison.

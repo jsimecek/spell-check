@@ -78,7 +78,7 @@ Then set **Spelling** back to **Automatic by Language** in the same settings she
 scripts/fetch-dictionaries.sh   # required once before swift test
 swift build
 swift test                      # unit tests plus integration tests against the real dictionaries
-scripts/fetch-benchmark.sh      # optional: English misspelling lists for the quality benchmark
+scripts/fetch-benchmark.sh      # optional: English misspelling lists and news sentences for the quality benchmark
 CZEN_EVAL=1 swift test -c release -Xswiftc -enable-testing --filter BenchmarkTests
 ```
 

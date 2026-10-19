@@ -37,6 +37,7 @@ This is a summary, not legal advice. The upstream license texts are authoritativ
 `scripts/fetch-benchmark.sh` downloads these into `Benchmarks/` (sha256-pinned, gitignored) for the opt-in benchmark in `Tests/SpellCoreTests/BenchmarkTests.swift`. They are not in this repository and not in the built bundle.
 
 - Wikipedia, "Lists of common misspellings/For machines", revision `1199637275` (<https://en.wikipedia.org/w/index.php?oldid=1199637275>). License: CC BY-SA 4.0, per Wikipedia's terms; authors are listed in the page history.
+- Leipzig Corpora Collection news sentences `ces_news_2022_30K` and `eng_news_2023_30K` (<https://downloads.wortschatz-leipzig.de/corpora/>), terms as in the Leipzig section above. Only the `*-sentences.txt` files are kept.
 - `aspell.dat` from Roger Mitton's corpora of misspellings at Birkbeck, University of London (<https://www.dcs.bbk.ac.uk/~ROGER/corpora.html>), derived from Kevin Atkinson's GNU Aspell test list. The page states no license; it is used here only as local test input.
 
 ## Note for forks

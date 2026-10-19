@@ -6,6 +6,10 @@ public final class BilingualSpeller {
     /// Log-likelihood margin by which an accented form must beat a valid accentless word
     /// ("nemam" -> "nemám") before the word is flagged; lower flags more.
     static let missingAccentMargin = 3.0
+    /// The same for an English word in Czech text ("ted" -> "teď"); English titles ("The Times") stay unflagged.
+    static let englishWordAccentMargin = 0.0
+    /// Margin when the sentence's other words carry accents: that writer types them, so a bare valid word is likelier meant.
+    static let accentedSentenceMargin = 5.0
     /// Log-likelihood ratio at which word frequencies alone decide a sentence's language.
     static let decisiveLanguageEvidence = 1.0
     static let maxWordLanguageEvidence = 6.0
@@ -16,7 +20,7 @@ public final class BilingualSpeller {
 
     private let dictionaries: [Language: HunspellDictionary]
     private let frequencies: [Language: FrequencyList]
-    private let models: [Language: NGramModel]
+    let models: [Language: NGramModel]
     private let learned: LearnedWords
     private let nativeGuesses: (any NativeGuessProviding)?
 
@@ -97,11 +101,17 @@ public final class BilingualSpeller {
             if !isCorrect(word, in: language) {
                 if isDottedAbbreviation(word, at: range, in: nsText, language: language) { continue }
                 if isInCorrectCompound(range, in: nsText, language: language) { continue }
+                let wordContext = context()
+                if isCorrect(word), !hasLikelierAccentedForm(word, in: wordContext, margin: Self.englishWordAccentMargin) {
+                    continue
+                }
                 misspelled.append(range)
-                remember(context(), for: word, isBareWord: isBareWord)
+                remember(wordContext, for: word, isBareWord: isBareWord)
             } else if language == .czech, mightBeMissingAccents(word) {
                 let wordContext = context()
-                guard hasLikelierAccentedForm(word, in: wordContext) else { continue }
+                let writerTypesAccents = tokenIndex.map { sentenceHasOtherAccents($0, in: tokens) } ?? false
+                let margin = writerTypesAccents ? Self.accentedSentenceMargin : Self.missingAccentMargin
+                guard hasLikelierAccentedForm(word, in: wordContext, margin: margin) else { continue }
                 misspelled.append(range)
                 remember(wordContext, for: word, isBareWord: isBareWord)
             }
@@ -163,20 +173,31 @@ public final class BilingualSpeller {
 
     /// `context` nil means: use what the last check remembered about this word.
     public func guesses(for word: String, context explicitContext: WordContext? = nil) -> [String] {
+        let input = rankingInput(for: word, context: explicitContext)
+        return ContextRanker.rank(word: input.word, candidates: input.candidates, context: input.context, models: models)
+    }
+
+    /// Everything `ContextRanker` needs; the benchmark reuses it to tune weights without regenerating candidates.
+    func rankingInput(for word: String, context explicitContext: WordContext?) -> (
+        word: String, candidates: [Candidate], context: WordContext
+    ) {
         let context =
             explicitContext ?? rememberedContext(of: word)
             ?? WordContext(language: language(ofSentence: word), left: nil, right: nil)
         // After the lookup: contexts are keyed by the word as flagged, soft hyphens included.
         let word = word.removingSoftHyphens
-        return ContextRanker.rank(word: word, candidates: candidates(for: word), context: context, models: models)
+        return (word, candidates(for: word, language: context.language), context)
     }
 
-    private func candidates(for word: String) -> [Candidate] {
+    private func candidates(for word: String, language sentenceLanguage: Language?) -> [Candidate] {
         var candidates = nativeCandidates(for: word)
         for (language, dictionary) in dictionaries {
-            candidates += dictionary.suggestions(for: word)
-                .filter { Self.isUsefulSuggestion($0, in: language) }
-                .map { Candidate(text: $0, language: language, source: .hunspell) }
+            // Czech suggestions take most of the time and rarely win in an English sentence.
+            if !(language == .czech && sentenceLanguage == .english) {
+                candidates += dictionary.suggestions(for: word)
+                    .filter { Self.isUsefulSuggestion($0, in: language) }
+                    .map { Candidate(text: $0, language: language, source: .hunspell) }
+            }
             candidates += (frequencies[language]?.neighbors(of: word, maxDistance: Self.neighborDistance) ?? [])
                 .filter(dictionary.isCorrect)
                 .map { Candidate(text: $0, language: language, source: .neighbor) }
@@ -335,6 +356,11 @@ public final class BilingualSpeller {
         return restorations
     }
 
+    private func sentenceHasOtherAccents(_ index: Int, in tokens: [NGramTokenizer.Token]) -> Bool {
+        let sentence = tokens[index].sentence
+        return tokens.indices.contains { $0 != index && tokens[$0].sentence == sentence && tokens[$0].word.hasDiacritics }
+    }
+
     /// A correct word that could also be Czech typed without accents ("mam" for "mám").
     private func mightBeMissingAccents(_ word: String) -> Bool {
         !learned.contains(word) && !word.hasDiacritics && !czechRestorations(of: word).isEmpty
@@ -342,13 +368,13 @@ public final class BilingualSpeller {
 
     /// Real-word error check for Czech typed without accents: "Nemam cas" is valid Czech word by word,
     /// but "Nemám" fits the sentence far better.
-    private func hasLikelierAccentedForm(_ word: String, in context: WordContext) -> Bool {
+    private func hasLikelierAccentedForm(_ word: String, in context: WordContext, margin: Double) -> Bool {
         guard let model = models[.czech] else { return false }
         let typedScore = model.contextScore(word.lowercased(), left: context.left, right: context.right)
         let bestAccentedScore =
             czechRestorations(of: word)
             .map { model.contextScore($0.lowercased(), left: context.left, right: context.right) }
             .max() ?? -.infinity
-        return bestAccentedScore - typedScore >= Self.missingAccentMargin
+        return bestAccentedScore - typedScore >= margin
     }
 }

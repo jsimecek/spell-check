@@ -50,6 +50,17 @@ import Testing
         #expect(flagged("I met Ted at the mall, no problem.").isEmpty)
     }
 
+    @Test func englishTitlesInCzechTextAreNotTakenForMissingAccents() {
+        #expect(flagged("Článek vyšel v The Times a pak ve Star Wars magazínu.").isEmpty)
+        #expect(flagged("Ten film jsem viděl, ted to vím.") == ["ted"])
+    }
+
+    @Test func validBareWordInAccentedTextNeedsStrongerEvidence() {
+        #expect(flagged("V pondělí ráno máme poradu s klientem.").isEmpty)
+        #expect(flagged("Během pandemii jsme pracovali z domova.").isEmpty)
+        #expect(flagged("Nemám cas, zavolám ti zítra.") == ["cas"])
+    }
+
     @Test func acceptsDottedCzechAbbreviations() {
         #expect(flagged("Např. máme tzv. kancelář, atd.").isEmpty)
         #expect(flagged("Ing. Jan Novák, tj. ředitel.").isEmpty)
@@ -226,6 +237,12 @@ import Testing
         _ = speller.misspellings(in: "It runs automaticly every night.")
         #expect(speller.guesses(for: "automaticly").first == "automatically")
         #expect(speller.guesses(for: "acord", context: Self.english).first == "accord")
+    }
+
+    @Test func englishSentenceSkipsSlowCzechSuggestions() {
+        let candidates = speller.rankingInput(for: "recieve", context: Self.english).candidates
+        #expect(!candidates.contains { $0.language == .czech && $0.source == .hunspell })
+        #expect(speller.rankingInput(for: "prosim", context: Self.czech).candidates.contains { $0.source == .hunspell })
     }
 
     @Test func noHyphenatedSplitsOnTop() {

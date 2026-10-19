@@ -88,6 +88,19 @@ private struct FakeModel: LanguageModelScoring {
         #expect(ranked == ["Monday", "today"])
     }
 
+    @Test func commonWordBeatsARareNameForALowercaseWord() {
+        let ranked = ContextRanker.rank(
+            word: "jou",
+            candidates: [
+                Candidate(text: "Jou", language: .czech, source: .capitalization),
+                Candidate(text: "jsou", language: .czech, source: .hunspell),
+            ],
+            context: nil,
+            models: [.czech: FakeModel(scores: ["jou": -15, "jsou": -5])]
+        )
+        #expect(ranked.first == "jsou")
+    }
+
     @Test func showsAtMostFiveGuesses() {
         #expect(ContextRanker.maxGuesses == 5)
     }

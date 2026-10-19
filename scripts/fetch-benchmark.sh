@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Downloads pinned English misspelling lists into Benchmarks/ for the opt-in benchmark
-# (Tests/SpellCoreTests/BenchmarkTests.swift). Test-only data, fetched, never committed or shipped.
+# Downloads pinned English misspelling lists and held-out Leipzig news sentences (CC BY) into
+# Benchmarks/ for the opt-in benchmark (Tests/SpellCoreTests/BenchmarkTests.swift).
+# Test-only data, fetched, never committed or shipped.
 # Usage: scripts/fetch-benchmark.sh   (skips anything already present and verified)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -25,6 +26,27 @@ for entry in "${FILES[@]}"; do
   "${CURL[@]}" -o "$file.tmp" "$url" || { rm -f "$file.tmp"; echo "Download failed: $url" >&2; exit 1; }
   echo "$sha  $file.tmp" | shasum -a 256 -c --status || { rm -f "$file.tmp"; echo "Checksum mismatch: $url" >&2; exit 1; }
   mv "$file.tmp" "$file"
+done
+
+# News, not the web corpora the n-gram models are built from, so the benchmark text is unseen.
+# "corpus sha256"
+CORPORA=(
+  "ces_news_2022_30K bdda4532027eb10f6e040ac0127ce53560d944029e63be2b47ad301dcc1285e0"
+  "eng_news_2023_30K 59203162b5c6c42c776b990c6913eed0eb4aaf3ac5edca9b98fbf511c19545a6"
+)
+
+for entry in "${CORPORA[@]}"; do
+  read -r corpus sha <<<"$entry"
+  file="$DEST/$corpus-sentences.txt"
+  [[ -f "$file" ]] && continue
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  url="https://downloads.wortschatz-leipzig.de/corpora/$corpus.tar.gz"
+  "${CURL[@]}" -o "$tmp/corpus.tar.gz" "$url" || { echo "Download failed: $url" >&2; exit 1; }
+  echo "$sha  $tmp/corpus.tar.gz" | shasum -a 256 -c --status || { echo "Checksum mismatch: $url" >&2; exit 1; }
+  tar -xzf "$tmp/corpus.tar.gz" -C "$tmp" "$corpus/$corpus-sentences.txt"
+  mv "$tmp/$corpus/$corpus-sentences.txt" "$file"
+  rm -rf "$tmp"
 done
 
 echo "Benchmark data ready in $DEST/"

@@ -4,7 +4,8 @@ import Testing
 @testable import SpellCore
 
 /// Opt-in quality benchmark: `CZEN_EVAL=1 swift test -c release -Xswiftc -enable-testing --filter BenchmarkTests`.
-/// Even rows tune, odd rows are the holdout that the floors guard. English lists need scripts/fetch-benchmark.sh.
+/// Even rows tune, odd rows are the holdout that the floors guard. English lists and corpora need
+/// scripts/fetch-benchmark.sh. `CZEN_EVAL_ONLY=en-aspell,cs-ctx` runs only guess sets with those prefixes.
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["CZEN_EVAL"] == "1"))
 struct BenchmarkTests {
     static let root = URL(fileURLWithPath: #filePath)
@@ -15,7 +16,9 @@ struct BenchmarkTests {
     /// Minimum holdout top-1 (%) per guess set; language and false positives have their own floors.
     static let top1Floors: [String: Double] = [
         "cs-strip": 96, "cs-typo": 80, "cs-strip+typo": 78, "cs-i/y": 94, "cs-y/z": 92,
-        "cs-handwritten": 95, "en-handwritten": 93, "en-wikipedia": 85, "en-aspell": 60,
+        "cs-handwritten": 95, "en-handwritten": 93, "en-wikipedia": 88, "en-aspell": 62,
+        "cs-ctx-strip": 95, "cs-ctx-strip-sentence": 94, "cs-ctx-typo": 88, "cs-ctx-i/y": 94, "en-ctx-typo": 93,
+        "cs-typo-rare": 86, "en-typo-rare": 90,
     ]
     static let languageFloor = 97.0
     static let maxFalsePositives = 1
@@ -24,6 +27,8 @@ struct BenchmarkTests {
         let typed: String
         let expected: String
         let sentence: String?
+        /// Where `typed` sits in `sentence`; nil means its first occurrence.
+        var range: NSRange? = nil
     }
 
     struct Score {
@@ -35,6 +40,10 @@ struct BenchmarkTests {
         var failures: [String] = []
 
         var top1Percent: Double { count == 0 ? 0 : 100 * Double(top1) / Double(count) }
+        var p95: Double {
+            let sorted = milliseconds.sorted()
+            return sorted.isEmpty ? 0 : sorted[min(sorted.count - 1, sorted.count * 95 / 100)]
+        }
         var top5Percent: Double { count == 0 ? 0 : 100 * Double(top5) / Double(count) }
     }
 
@@ -48,6 +57,10 @@ struct BenchmarkTests {
     }
 
     @Test func guesses() throws {
+        try run(guessSets())
+    }
+
+    func guessSets() throws -> [(String, [Case], Language)] {
         var sets: [(String, [Case], Language)] = []
         sets += try SyntheticCzech.sets(from: BilingualSpellerTests.dictionaries.appendingPathComponent("cs_50k.txt"), speller: speller)
             .map { ($0.0, $0.1, Language.czech) }
@@ -56,8 +69,16 @@ struct BenchmarkTests {
         if let wikipedia = try? Self.wikipediaCases() { sets.append(("en-wikipedia", wikipedia, .english)) }
         if let aspell = try? Self.aspellCases() { sets.append(("en-aspell", aspell, .english)) }
         if sets.count < 9 { print("BENCH note: English lists missing, run scripts/fetch-benchmark.sh") }
+        return sets
+    }
 
-        for (name, cases, language) in sets {
+    static func isSelected(_ name: String) -> Bool {
+        guard let only = ProcessInfo.processInfo.environment["CZEN_EVAL_ONLY"] else { return true }
+        return only.split(separator: ",").contains { name.hasPrefix($0) }
+    }
+
+    func run(_ sets: [(String, [Case], Language)]) throws {
+        for (name, cases, language) in sets where Self.isSelected(name) {
             var halves = [Score(), Score()]
             for (index, testCase) in cases.enumerated() {
                 score(testCase, language: language, into: &halves[index % 2])
@@ -67,7 +88,8 @@ struct BenchmarkTests {
                 print(
                     "BENCH \(name) \(half): n=\(score.count) top1=\(Self.format(score.top1Percent))% "
                         + "top5=\(Self.format(score.top5Percent))% notFlagged=\(score.notFlagged) "
-                        + "avg=\(Self.format(average))ms max=\(Self.format(score.milliseconds.max() ?? 0))ms"
+                        + "avg=\(Self.format(average))ms p95=\(Self.format(score.p95))ms "
+                        + "max=\(Self.format(score.milliseconds.max() ?? 0))ms"
                 )
                 if ProcessInfo.processInfo.environment["CZEN_EVAL_VERBOSE"] == "1" {
                     for failure in score.failures { print("  MISS \(name) \(half): \(failure)") }
@@ -139,7 +161,7 @@ struct BenchmarkTests {
         var expected = testCase.expected
         if let sentence = testCase.sentence {
             let nsSentence = sentence as NSString
-            let range = nsSentence.range(of: testCase.typed, options: .caseInsensitive)
+            let range = testCase.range ?? nsSentence.range(of: testCase.typed, options: .caseInsensitive)
             guard range.location != NSNotFound else { return }
             typed = nsSentence.substring(with: range)
             if typed.first?.isUppercase == true { expected = expected.uppercasingFirstLetter() }
@@ -158,7 +180,9 @@ struct BenchmarkTests {
             testCase.sentence == nil
             ? speller.guesses(for: typed, context: WordContext(language: language, left: nil, right: nil))
             : speller.guesses(for: typed)
-        score.milliseconds.append(Date().timeIntervalSince(start) * 1000)
+        let milliseconds = Date().timeIntervalSince(start) * 1000
+        score.milliseconds.append(milliseconds)
+        if milliseconds > 300 { score.failures.append("slow \(Self.format(milliseconds)) ms: \(typed)") }
         if guesses.first == expected { score.top1 += 1 }
         if guesses.contains(expected) { score.top5 += 1 }
         if guesses.first != expected { score.failures.append("\(typed) -> \(expected), got \(guesses.prefix(3))") }
@@ -208,7 +232,8 @@ struct BenchmarkTests {
 
 /// Deterministic Czech typos built from frequent dictionary words.
 enum SyntheticCzech {
-    private static let keyboardRows = ["qwertzuiop", "asdfghjkl", "yxcvbnm"].map(Array.init)
+    static let qwertzRows = ["qwertzuiop", "asdfghjkl", "yxcvbnm"].map(Array.init)
+    static let qwertyRows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"].map(Array.init)
 
     static func sets(from frequencyList: URL, speller: BilingualSpeller) throws -> [(String, [BenchmarkTests.Case])] {
         let words = try String(contentsOf: frequencyList, encoding: .utf8).split(separator: "\n")
@@ -236,18 +261,18 @@ enum SyntheticCzech {
         ]
     }
 
-    private static func strip(_ word: String) -> String {
+    static func strip(_ word: String) -> String {
         word.folding(options: .diacriticInsensitive, locale: nil)
     }
 
-    private static func swapIY(_ word: String) -> (String, String)? {
+    static func swapIY(_ word: String) -> (String, String)? {
         for (from, to) in [("ý", "í"), ("y", "i"), ("í", "ý")] {
             if let range = word.range(of: from) { return (word.replacingCharacters(in: range, with: to), word) }
         }
         return nil
     }
 
-    private static func neighbors(of character: Character) -> [Character] {
+    private static func neighbors(of character: Character, rows keyboardRows: [[Character]]) -> [Character] {
         for (row, keys) in keyboardRows.enumerated() {
             guard let column = keys.firstIndex(of: character) else { continue }
             var result: [Character] = []
@@ -262,11 +287,11 @@ enum SyntheticCzech {
     }
 
     /// One substitution by a neighbouring key, deletion, transposition or neighbouring-key insertion.
-    private static func typo(_ word: String, _ random: inout SplitMix) -> String {
+    static func typo(_ word: String, _ random: inout SplitMix, rows: [[Character]] = qwertzRows) -> String {
         var letters = Array(word)
         let kind = random.next(4)
         let index = random.next(letters.count)
-        let nearby = neighbors(of: Character(strip(String(letters[index]))))
+        let nearby = neighbors(of: Character(strip(String(letters[index]))), rows: rows)
         switch kind {
         case 0 where !nearby.isEmpty: letters[index] = nearby[random.next(nearby.count)]
         case 1 where letters.count > 3: letters.remove(at: index)

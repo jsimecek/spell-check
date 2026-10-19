@@ -5,7 +5,8 @@ macOS spell-checking service (NSSpellServer) for Czech + English. Swift package,
 ## Commands
 - `scripts/fetch-dictionaries.sh`: download pinned dictionaries and frequency lists and build the n-gram models into `Dictionaries/`. Required before `swift test`. Network, ~400 MB of corpora on first run.
 - `swift build`, `swift test`: unit tests plus integration tests against the real dictionaries.
-- `scripts/fetch-benchmark.sh`, then `CZEN_EVAL=1 swift test -c release -Xswiftc -enable-testing --filter BenchmarkTests`: opt-in quality benchmark (guess top-1/top-5, sentence language, false positives, timings). Tune on the `tune` rows, judge on `holdout`; `CZEN_EVAL_VERBOSE=1` lists misses.
+- `scripts/fetch-benchmark.sh`, then `CZEN_EVAL=1 swift test -c release -Xswiftc -enable-testing --filter BenchmarkTests`: opt-in quality benchmark (guess top-1/top-5, sentence language, false positives, timings). Tune on the `tune` rows, judge on `holdout`; `CZEN_EVAL_VERBOSE=1` lists misses, `CZEN_EVAL_ONLY=en-aspell,cs-ctx` limits guess sets by prefix. The `cs-ctx-*`/`en-ctx-*` rows inject errors into unseen Leipzig news sentences; `corpus flags` counts flags on that correct text.
+- `CZEN_TUNE=1 CZEN_EVAL=1 swift test -c release -Xswiftc -enable-testing --filter tuneRanking`: builds candidates once, then scores the `ContextRanker.Weights` variants listed in `BenchmarkTests+Tuning.swift` in seconds.
 - `scripts/build.sh` → `build/CzEnSpell.service` (ad-hoc signed); `scripts/install.sh` / `scripts/uninstall.sh` (user-level only, `~/Library/Services`).
 - `scripts/probe.sh [mul|auto|cs|en]`: runs `scripts/probe-sentences.txt` through `NSSpellChecker` like a real app.
 

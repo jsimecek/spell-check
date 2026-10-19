@@ -66,4 +66,11 @@ import Testing
         #expect(cost("kat", "kot") == 1)
         #expect(cost("kat", "katka") == 2)
     }
+
+    @Test func englishVowelSlipsAreCheaperOnlyForEnglishWords() {
+        #expect(ErrorModel.cost(typed: "definately", candidate: "definitely", language: .english) == ErrorModel.englishVowel)
+        #expect(ErrorModel.cost(typed: "happend", candidate: "happened", language: .english) == ErrorModel.englishVowelIndel)
+        #expect(ErrorModel.cost(typed: "definately", candidate: "definitely", language: .czech) == 1)
+        #expect(ErrorModel.cost(typed: "pmoc", candidate: "pomoc", language: .czech) == 1)
+    }
 }

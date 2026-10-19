@@ -7,7 +7,7 @@ public enum LearnedWordsError: Error {
 
 /// User-learned words: our own newline-separated store plus read-only sources such as
 /// macOS's ~/Library/Spelling/LocalDictionary. Read-only words the user forgot are kept in
-/// the store as "!word" lines so they stay forgotten.
+/// the store as "!word" lines so they stay forgotten. Soft hyphens are left out of every word, as checks do.
 public final class LearnedWords {
     private static let forgottenMarker = "!"
 
@@ -40,6 +40,7 @@ public final class LearnedWords {
 
     /// Ignores words that cannot be stored as one plain line, so callers cannot inject or forget other words.
     func add(_ word: String) throws {
+        let word = word.removingSoftHyphens
         guard !word.isEmpty, !word.hasPrefix(Self.forgottenMarker), !word.contains(where: \.isNewline) else { return }
         let isNew = ownWords.insert(word).inserted
         let wasForgotten = forgottenWords.remove(word) != nil
@@ -49,6 +50,7 @@ public final class LearnedWords {
 
     /// Forgetting "Foo" forgets the learned "foo" that made it acceptable.
     func remove(_ word: String) throws {
+        let word = word.removingSoftHyphens
         var changed = false
         for form in Set([word, word.lowercasingFirstLetter()]) {
             if ownWords.remove(form) != nil { changed = true }
@@ -90,7 +92,7 @@ public final class LearnedWords {
     }
 
     private static func nonEmptyLines(of text: String) -> Set<String> {
-        // split omits empty lines by default.
-        Set(text.split(whereSeparator: \.isNewline).map(String.init))
+        // split omits empty lines by default; a line of soft hyphens only is empty too.
+        Set(text.split(whereSeparator: \.isNewline).map { String($0).removingSoftHyphens }.filter { !$0.isEmpty })
     }
 }

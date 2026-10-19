@@ -68,6 +68,7 @@ Then set **Spelling** back to **Automatic by Language** in the same settings she
 
 - The bundle is ad-hoc signed for the Mac that built it and is not notarized.
 - Apps with their own spell checker (Firefox, Microsoft Office) are not affected. Chromium and Electron apps are untested.
+- Knows only Czech and English: most words in other languages are underlined.
 - No grammar checking. Real-word mistakes are only caught when accents are missing (`byt`/`být` is judged on accents, never on grammar).
 - Right after install or a crash, the first check can come back empty while the service starts. The next check works.
 - Memory: about 100 MB for the service plus about 30 MB for the helper.

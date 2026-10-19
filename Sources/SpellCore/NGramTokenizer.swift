@@ -11,6 +11,7 @@ enum NGramTokenizer {
 
     private static let sentenceEnds: Set<Unicode.Scalar> = [".", "!", "?", "\n", "…"]
     private static let apostrophes: Set<Unicode.Scalar> = ["'", "\u{2019}"]
+    private static let softHyphen: Unicode.Scalar = "\u{AD}"
 
     static func tokens(in text: String) -> [Token] {
         var tokens: [Token] = []
@@ -20,14 +21,16 @@ enum NGramTokenizer {
         var offset = 0  // UTF-16 offset of the current scalar
         // An apostrophe is kept only between letters ("don't"), so it waits for the next letter.
         var pendingApostrophe = false
+        // UTF-16 length after the last letter that only a following letter would make part of the range.
+        var pendingLength = 0
 
         func finishWord() {
             guard !word.isEmpty else { return }
-            let trailingApostrophe = pendingApostrophe ? 1 : 0
-            let range = NSRange(location: wordStart, length: offset - wordStart - trailingApostrophe)
+            let range = NSRange(location: wordStart, length: offset - wordStart - pendingLength)
             tokens.append(Token(word: String(word).lowercased(), range: range, sentence: sentence))
             word = String.UnicodeScalarView()
             pendingApostrophe = false
+            pendingLength = 0
         }
 
         for scalar in text.unicodeScalars {
@@ -37,9 +40,14 @@ enum NGramTokenizer {
                     word.append("'")
                     pendingApostrophe = false
                 }
+                pendingLength = 0
                 word.append(scalar)
             } else if apostrophes.contains(scalar), !word.isEmpty, !pendingApostrophe {
                 pendingApostrophe = true
+                pendingLength += scalar.utf16.count
+            } else if scalar == softHyphen, !word.isEmpty {
+                // Invisible break hint ("pra\u{AD}ci"): inside the range, left out of the word.
+                pendingLength += scalar.utf16.count
             } else {
                 finishWord()
                 // Only a sentence with words in it can end, so "?!" or "..." count once.

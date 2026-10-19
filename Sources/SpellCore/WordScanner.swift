@@ -18,7 +18,7 @@ public enum WordScanner {
             let isInTechnicalToken =
                 nextTechnical < technicalRanges.count
                 && NSIntersectionRange(technicalRanges[nextTechnical], range).length > 0
-            guard let word, shouldCheck(word), !isInTechnicalToken else { return }
+            guard let word, shouldCheck(word.removingSoftHyphens), !isInTechnicalToken else { return }
             words.append(range)
         }
         return words

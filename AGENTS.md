@@ -11,13 +11,13 @@ macOS spell-checking service (NSSpellServer) for Czech + English. Swift package,
 - `scripts/probe.sh [mul|auto|cs|en]`: runs `scripts/probe-sentences.txt` through `NSSpellChecker` like a real app.
 
 ## Layout
-- `Sources/SpellCore`: all logic. Keep it AppKit-free and testable. Public API is only what the other targets use: `BilingualSpeller`, `LearnedWords`, `NativeGuessClient` and its request/response types, `WordScanner`, `NGramModel` (for `ngram-build`), `WordContext`, `Language`, error enums. Everything else is internal; tests use `@testable import`.
+- `Sources/SpellCore`: all logic. Keep it AppKit-free and testable. Public API is only what the other targets use: `BilingualSpeller`, `LearnedWords`, `NativeGuessClient` and its request/response types (plus `NativeGuessProviding` and `NativeGuesses`, which public signatures need), `WordScanner`, `NGramModel` (for `ngram-build`), `WordContext`, `Language`, error enums. Everything else is internal; tests use `@testable import`.
   - `BilingualSpeller`: entry point (check, guesses, learn/forget).
   - `HunspellDictionary`, `FrequencyList`, `NGramModel` + `NGramTokenizer`: data access. `NGramTokenizer` is shared by the model builder and the runtime.
   - `LanguageDetector`, `DiacriticExpander`, `ColloquialCzech`, `EditDistance`, `ErrorModel`, `ContextRanker`: detection, candidates, ranking. Sentence language is decided in `BilingualSpeller` (n-gram word frequencies first, `LanguageDetector` as tie-breaker).
   - `WordScanner`: which words to check (skips URLs, emails, code-like tokens, acronyms).
   - `NativeGuessClient`: pipe to the Apple helper process. `LearnedWords`: user dictionary.
-  - `String+Letters.swift`: small shared string helpers (first-letter case, `hasDiacritics`).
+  - `String+Letters.swift`: small shared string helpers (first-letter case, `hasDiacritics`, `removingSoftHyphens`).
 - `Sources/CzEnSpellServer`: thin NSSpellServer bridge (`SpellServerDelegate`), process bootstrap (`main.swift`), Apple helper (`AppleHelper`).
 - `Sources/CHunspell`: vendored Hunspell 1.7.5, unmodified (see `VENDORED.md`). Do not edit.
 - `Sources/spellprobe`: end-to-end probe CLI. `Sources/ngram-build`: builds `Dictionaries/{cs,en}.ngram` from Leipzig sentences.

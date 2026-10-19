@@ -92,6 +92,7 @@ import Testing
         #expect(flagged("Connect to the Wi\u{2011}Fi network.").isEmpty)
         #expect(flagged("Máme back-endový kód.").isEmpty)
         #expect(flagged("Máme česko-německý slovník.".decomposedStringWithCanonicalMapping).isEmpty)
+        #expect(flagged("Máme če\u{AD}sko-ně\u{AD}mecký slovník.").isEmpty)
     }
 
     @Test func flagsPartsOfAnUnknownHyphenatedCompound() {
@@ -112,6 +113,25 @@ import Testing
         #expect(["prací", "práci"].contains(guesses.first))
         #expect(guesses.allSatisfy { !$0.unicodeScalars.contains("\u{AD}") })
         #expect(speller.guesses(for: "po\u{AD}slta", context: Self.czech).first == "poslat")
+    }
+
+    @Test(arguments: [
+        ("Jsem spokojeny s pra\u{AD}ci.", "Jsem spokojeny s praci."),
+        ("Ne\u{AD}mam cas.", "Nemam cas."),
+        ("Mam ra\u{AD}d ka\u{AD}fe.", "Mam rad kafe."),
+        ("Ale kdybych to me\u{AD}la rici volne.", "Ale kdybych to mela rici volne."),
+        ("Mám če\u{AD}sko-ne\u{AD}mecký slovník.", "Mám česko-nemecký slovník."),
+    ])
+    func softHyphensChangeNeitherFlagsNorContext(_ hyphenated: String, _ plain: String) {
+        func flagsWithContext(_ text: String) -> [String: WordContext] {
+            let words = flagged(text)
+            return Dictionary(
+                words.map { ($0.removingSoftHyphens, speller.rankingInput(for: $0, context: nil).context) }
+            ) { first, _ in first }
+        }
+        let expected = flagsWithContext(plain)
+        #expect(!expected.isEmpty)
+        #expect(flagsWithContext(hyphenated) == expected)
     }
 
     @Test func flagsValidWordsWhoseAccentedFormFitsFarBetter() {
@@ -297,6 +317,15 @@ import Testing
         #expect(flagged("Ahoj Bflmpsvz") == ["Bflmpsvz"])
     }
 
+    @Test func learnedWordWithSoftHyphenIsAcceptedAndForgettable() throws {
+        try speller.learn("Bfl\u{AD}mpsvz")
+        #expect(flagged("Ahoj Bfl\u{AD}mpsvz").isEmpty)
+        #expect(flagged("Ahoj Bflmpsvz").isEmpty)
+        try speller.forget("Bfl\u{AD}mpsvz")
+        #expect(flagged("Ahoj Bfl\u{AD}mpsvz") == ["Bfl\u{AD}mpsvz"])
+        #expect(flagged("Ahoj Bflmpsvz") == ["Bflmpsvz"])
+    }
+
     @Test func learnedWordIsNotFlaggedForMissingAccents() throws {
         #expect(flagged("Nemam cas, zavolam ti zitra.").contains("cas"))
         try speller.learn("cas")
@@ -369,14 +398,18 @@ import Testing
     }
 }
 
-/// Always answers `answer` and records what was prefetched.
+/// Always answers `answer` and records what was queried and prefetched.
 private final class FakeNativeGuesses: NativeGuessProviding {
     let answer: NativeGuesses?
+    private(set) var queried: [String] = []
     private(set) var prefetched: [String] = []
 
     init(answer: NativeGuesses?) { self.answer = answer }
 
-    func cachedGuesses(for word: String) -> NativeGuesses? { answer }
+    func cachedGuesses(for word: String) -> NativeGuesses? {
+        queried.append(word)
+        return answer
+    }
     func prefetch(_ words: [String]) { prefetched += words }
 }
 
@@ -405,6 +438,16 @@ private final class FakeNativeGuesses: NativeGuessProviding {
         let native = FakeNativeGuesses(answer: nil)
         _ = try speller(native).misspellings(in: "Zitra pujdeme do kina.")
         #expect(native.prefetched == ["Zitra", "pujdeme"])
+    }
+
+    @Test func nativeGuessesAreAskedForWordsWithoutSoftHyphens() throws {
+        let native = FakeNativeGuesses(answer: nil)
+        let speller = try speller(native)
+        _ = speller.misspellings(in: "Jsem spokojeny s pra\u{AD}ci.")
+        #expect(native.prefetched == ["spokojeny", "praci"])
+        _ = speller.guesses(for: "pra\u{AD}ci")
+        #expect(native.queried == ["praci"])
+        #expect(native.prefetched == ["spokojeny", "praci", "praci"])
     }
 
     @Test func prefetchesOnCacheMissSoTheNextRequestIsNative() throws {

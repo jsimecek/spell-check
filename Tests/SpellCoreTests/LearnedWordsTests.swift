@@ -87,6 +87,26 @@ import Testing
         #expect(reloaded.all == ["foo"])
     }
 
+    @Test func softHyphensInStoredWordsAreIgnored() throws {
+        let source = try readOnlySource("ba\u{AD}r\n")
+        try "fo\u{AD}o\n!ba\u{AD}r\n\u{AD}\n".write(to: store, atomically: true, encoding: .utf8)
+        let learned = try LearnedWords(storeURL: store, readOnlySources: [source])
+        #expect(learned.contains("foo"))
+        #expect(!learned.contains("bar"))
+        #expect(learned.all == ["foo"])
+        try learned.remove("fo\u{AD}o")
+        #expect(!learned.contains("foo"))
+        #expect(!(try LearnedWords(storeURL: store, readOnlySources: [source]).contains("foo")))
+    }
+
+    @Test func softHyphensAreLeftOutOfLearnedWords() throws {
+        let learned = try LearnedWords(storeURL: store, readOnlySources: [])
+        try learned.add("fo\u{AD}o")
+        try learned.add("\u{AD}")
+        #expect(learned.contains("foo"))
+        #expect(try String(contentsOf: store, encoding: .utf8) == "foo\n")
+    }
+
     @Test func failedWriteOfMissingStoreIsReported() throws {
         // Missing store on the read-only system volume: loads fine, saving fails.
         let readOnlyVolume = URL(fileURLWithPath: "/System/czen-\(UUID().uuidString)/learned.txt")

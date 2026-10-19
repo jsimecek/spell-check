@@ -87,7 +87,7 @@ public final class BilingualSpeller {
         let isBareWord = tokens.count == 1
         var misspelled: [NSRange] = []
         for range in WordScanner.words(in: text) {
-            let word = nsText.substring(with: range)
+            let word = nsText.substring(with: range).removingSoftHyphens
             let tokenIndex = tokenIndexByLocation[range.location]
             let language = tokenIndex.flatMap { languageBySentence[tokens[$0].sentence] } ?? textLanguage
             // Built on demand: finding the neighbours is the expensive part.
@@ -134,7 +134,7 @@ public final class BilingualSpeller {
     /// "Wi-Fi", "česko-německý": the parts are checked alone, but the dictionaries know the whole compound.
     private func isInCorrectCompound(_ range: NSRange, in text: NSString, language: Language?) -> Bool {
         guard let compound = Self.hyphenatedCompound(around: range, in: text) else { return false }
-        let word = text.substring(with: compound)
+        let word = text.substring(with: compound).removingSoftHyphens
             .replacingOccurrences(of: "\u{2010}", with: "-")
             .replacingOccurrences(of: "\u{2011}", with: "-")
         return isCorrect(word, in: language)
@@ -151,6 +151,10 @@ public final class BilingualSpeller {
         func isHyphen(_ index: Int) -> Bool {
             index >= 0 && index < text.length && hyphens.contains(text.character(at: index))
         }
+        // Soft hyphens sit inside the parts ("če\u{AD}sko-ně\u{AD}mecký"), never join them.
+        func isPartOfWord(_ index: Int) -> Bool {
+            isLetter(index) || (index >= 0 && index < text.length && text.character(at: index) == 0xAD)
+        }
         // Composing NFD text to NFC shrinks it to at most 1.5 UTF-16 units per byte, so a longer run exceeds
         // Hunspell's limit; the cap keeps long hyphen chains from costing a full walk per flagged part.
         let limit = 2 * HunspellDictionary.maxWordBytes
@@ -158,11 +162,11 @@ public final class BilingualSpeller {
         var end = NSMaxRange(range)
         while isHyphen(start - 1), isLetter(start - 2), end - start <= limit {
             start -= 1
-            while isLetter(start - 1), end - start <= limit { start -= 1 }
+            while isPartOfWord(start - 1), end - start <= limit { start -= 1 }
         }
         while isHyphen(end), isLetter(end + 1), end - start <= limit {
             end += 1
-            while isLetter(end), end - start <= limit { end += 1 }
+            while isPartOfWord(end), end - start <= limit { end += 1 }
         }
         if end - start > limit { return nil }
         let compound = NSRange(location: start, length: end - start)
@@ -181,11 +185,10 @@ public final class BilingualSpeller {
     func rankingInput(for word: String, context explicitContext: WordContext?) -> (
         word: String, candidates: [Candidate], context: WordContext
     ) {
+        let word = word.removingSoftHyphens
         let context =
             explicitContext ?? rememberedContext(of: word)
             ?? WordContext(language: language(ofSentence: word), left: nil, right: nil)
-        // After the lookup: contexts are keyed by the word as flagged, soft hyphens included.
-        let word = word.removingSoftHyphens
         return (word, candidates(for: word, language: context.language), context)
     }
 
@@ -282,7 +285,7 @@ public final class BilingualSpeller {
             return nil
         }
         let token = tokens[neighborIndex]
-        let original = text.substring(with: token.range)
+        let original = text.substring(with: token.range).removingSoftHyphens
         let isValid = dictionaries.values.contains { $0.isCorrect(original) }
         if isValid, language != .czech { return token.word }
         let forms = czechRestorations(of: original).map { $0.lowercased() } + (isValid ? [token.word] : [])
@@ -326,7 +329,7 @@ public final class BilingualSpeller {
         let czechTotal = log(Double(max(czech.totalTokens, 1)))
         let englishTotal = log(Double(max(english.totalTokens, 1)))
         return tokens.reduce(0) { ratio, token in
-            let original = text.substring(with: token.range)
+            let original = text.substring(with: token.range).removingSoftHyphens
             // Restoring English words would cost thousands of Hunspell lookups each on every check.
             let isEnglish = dictionaries[.english]?.isCorrect(original.replacingOccurrences(of: "\u{2019}", with: "'")) == true
             let restorations = isEnglish ? [] : czechRestorations(of: original)

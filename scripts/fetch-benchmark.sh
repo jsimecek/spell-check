@@ -2,7 +2,7 @@
 # Downloads pinned English misspelling lists and held-out Leipzig news sentences (CC BY) into
 # Benchmarks/ for the opt-in benchmark (Tests/SpellCoreTests/BenchmarkTests.swift).
 # Test-only data, fetched, never committed or shipped.
-# Usage: scripts/fetch-benchmark.sh   (skips anything already present and verified)
+# Usage: scripts/fetch-benchmark.sh   (skips verified downloads and sentence files already present)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

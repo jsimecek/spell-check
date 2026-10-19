@@ -24,6 +24,10 @@ import Testing
         #expect(checkedWords("Don't forget Praha") == ["Don't", "forget", "Praha"])
     }
 
+    @Test func softHyphensDoNotHideCamelCaseOrAcronyms() {
+        #expect(checkedWords("i\u{AD}Phone Mc\u{AD}Laughlin AP\u{AD}I prá\u{AD}ce") == ["prá\u{AD}ce"])
+    }
+
     @Test func skipsTechnicalTokensBetweenWords() {
         #expect(checkedWords("see a/b and c@d.cz or x.y then done") == ["see", "and", "or", "then", "done"])
     }

@@ -41,6 +41,17 @@ import Testing
         #expect(waitForCache(client, "zitra")?.czech == ["zitra-cs"])
     }
 
+    @Test func releasedWhileHelperRuns() {
+        var client: NativeGuessClient? = makeClient(Self.echoHelper)
+        weak let released = client
+        client?.prefetch(["praci"])
+        #expect(client.flatMap { waitForCache($0, "praci") } != nil)
+        client = nil
+        let deadline = Date().addingTimeInterval(2)
+        while released != nil, Date() < deadline { Thread.sleep(forTimeInterval: 0.01) }
+        #expect(released == nil)
+    }
+
     @Test func prefetchNeverBlocksOnSilentHelper() {
         let client = makeClient("cat > /dev/null")
         let start = Date()

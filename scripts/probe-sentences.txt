@@ -6,3 +6,4 @@ Příliš žluťoučký kůň úpěl ďábelské ódy.
 Pošli mi ten pull request a já udělám review.
 I definately recieve teh mail tomorow.
 Check https://example.com or mail jan@example.com about the API.
+Např. heslo k Wi-Fi a česko-německý slovník atd. vám zitra pošle Ing. Novák.

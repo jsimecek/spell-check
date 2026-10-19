@@ -29,8 +29,13 @@ do {
     }
     nativeGuesses?.prefetch(["warmup"])  // starts the helper before the first real request
     speller = try BilingualSpeller(dictionaryDirectory: dictionaries, learnedWords: learned, nativeGuesses: nativeGuesses)
+} catch SpellCoreError.missingDictionary(let url) {
+    log.fault("Startup failed: missing dictionary \(url.lastPathComponent, privacy: .public)")
+    exit(1)
 } catch {
-    log.fault("Startup failed: \(String(describing: error), privacy: .public)")
+    // Domain and code only, so no file paths reach the log.
+    let error = error as NSError
+    log.fault("Startup failed: \(error.domain, privacy: .public) \(error.code)")
     exit(1)
 }
 

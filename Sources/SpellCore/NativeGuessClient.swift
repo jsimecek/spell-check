@@ -109,12 +109,14 @@ public final class NativeGuessClient: NativeGuessProviding, @unchecked Sendable 
         do { try helper.run() } catch { return nil }
         process = helper
         input = stdin.fileHandleForWriting
-        Thread { [weak self] in self?.readAnswers(from: stdout.fileHandleForReading) }.start()
+        // The reader holds self only weakly, so deinit can still terminate a running helper.
+        let store: @Sendable (NativeGuessResponse) -> Void = { [weak self] in self?.store($0) }
+        Thread { Self.readAnswers(from: stdout.fileHandleForReading, store: store) }.start()
         return input
     }
 
     /// Runs on its own thread until the helper exits.
-    private func readAnswers(from output: FileHandle) {
+    private static func readAnswers(from output: FileHandle, store: (NativeGuessResponse) -> Void) {
         var buffer = Data()
         while true {
             let chunk = output.availableData

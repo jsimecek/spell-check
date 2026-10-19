@@ -22,13 +22,13 @@ public final class NGramModel: LanguageModelScoring {
 
     private let data: Data
     private let entryCount: Int
-    public let totalTokens: UInt64
+    let totalTokens: UInt64
 
-    public convenience init(url: URL) throws {
+    convenience init(url: URL) throws {
         try self.init(data: Data(contentsOf: url, options: .alwaysMapped))
     }
 
-    public init(data: Data) throws {
+    init(data: Data) throws {
         guard data.count >= Self.headerSize else { throw NGramModelError.corrupt }
         let (magic, version, totalTokens, entryCount) = data.withUnsafeBytes { raw in
             (
@@ -63,11 +63,11 @@ public final class NGramModel: LanguageModelScoring {
     }
 
     // Keys hash raw UTF-8 of the NFC corpus, so decomposed input must be composed first.
-    public func count(_ word: String) -> UInt32 {
+    func count(_ word: String) -> UInt32 {
         lookup(Self.hash(word.precomposedStringWithCanonicalMapping))
     }
 
-    public func count(_ first: String, _ second: String) -> UInt32 {
+    func count(_ first: String, _ second: String) -> UInt32 {
         lookup(Self.bigramKey(first.precomposedStringWithCanonicalMapping, second.precomposedStringWithCanonicalMapping))
     }
 
@@ -92,7 +92,7 @@ public final class NGramModel: LanguageModelScoring {
 
     /// Stupid backoff: bigram relative frequency when seen, otherwise 0.4 × unigram probability.
     /// A phrase ("v práci") is scored word by word as a chain.
-    public func contextScore(_ word: String, left: String?, right: String?) -> Double {
+    func contextScore(_ word: String, left: String?, right: String?) -> Double {
         let total = Double(max(totalTokens, 1))
         func unigram(_ word: String) -> Double {
             (Double(count(word)) + 0.1) / total

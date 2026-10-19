@@ -12,6 +12,7 @@ public final class BilingualSpeller {
     private static let neighborDistance = 2
     private static let maxRememberedContexts = 2000
     private static let maxCachedRestorations = 5000
+    private static let hyphens: Set<unichar> = [0x2D, 0x2010, 0x2011]
 
     private let dictionaries: [Language: HunspellDictionary]
     private let frequencies: [Language: FrequencyList]
@@ -50,7 +51,7 @@ public final class BilingualSpeller {
 
     // MARK: - Checking
 
-    public func isCorrect(_ word: String) -> Bool {
+    func isCorrect(_ word: String) -> Bool {
         isCorrect(word, in: nil)
     }
 
@@ -79,6 +80,7 @@ public final class BilingualSpeller {
         )
         let languageBySentence = sentenceLanguages(of: tokens, in: nsText)
         let textLanguage = LanguageDetector.detect(text)
+        let isBareWord = tokens.count == 1
         var misspelled: [NSRange] = []
         for range in WordScanner.words(in: text) {
             let word = nsText.substring(with: range)
@@ -93,17 +95,68 @@ public final class BilingualSpeller {
                 )
             }
             if !isCorrect(word, in: language) {
+                if isDottedAbbreviation(word, at: range, in: nsText, language: language) { continue }
+                if isInCorrectCompound(range, in: nsText, language: language) { continue }
                 misspelled.append(range)
-                remember(context(), for: word)
+                remember(context(), for: word, isBareWord: isBareWord)
             } else if language == .czech, mightBeMissingAccents(word) {
                 let wordContext = context()
                 guard hasLikelierAccentedForm(word, in: wordContext) else { continue }
                 misspelled.append(range)
-                remember(wordContext, for: word)
+                remember(wordContext, for: word, isBareWord: isBareWord)
             }
         }
-        if !misspelled.isEmpty { nativeGuesses?.prefetch(misspelled.map(nsText.substring(with:))) }
+        if !misspelled.isEmpty { nativeGuesses?.prefetch(misspelled.map { nsText.substring(with: $0).removingSoftHyphens }) }
         return misspelled
+    }
+
+    /// "atd.", "Ing.": the Czech dictionary knows these only with the dot, which the word range leaves out.
+    /// Czech must reject the bare word, since Hunspell ignores a trailing dot ("ted." is "ted").
+    /// In English sentences only capitalized ones count ("Ing. Novák"), so an English typo like "mal." is not hidden.
+    private func isDottedAbbreviation(_ word: String, at range: NSRange, in text: NSString, language: Language?) -> Bool {
+        guard language != .english || word.first?.isUppercase == true,
+            NSMaxRange(range) < text.length, text.character(at: NSMaxRange(range)) == 0x2E,
+            let czech = dictionaries[.czech]
+        else { return false }
+        return !czech.isCorrect(word) && czech.isCorrect(word + ".")
+    }
+
+    /// "Wi-Fi", "česko-německý": the parts are checked alone, but the dictionaries know the whole compound.
+    private func isInCorrectCompound(_ range: NSRange, in text: NSString, language: Language?) -> Bool {
+        guard let compound = Self.hyphenatedCompound(around: range, in: text) else { return false }
+        let word = text.substring(with: compound)
+            .replacingOccurrences(of: "\u{2010}", with: "-")
+            .replacingOccurrences(of: "\u{2011}", with: "-")
+        return isCorrect(word, in: language)
+    }
+
+    /// The hyphen-joined run of letters around `range`, or nil when no hyphen joins it to a neighbour.
+    private static func hyphenatedCompound(around range: NSRange, in text: NSString) -> NSRange? {
+        func isLetter(_ index: Int) -> Bool {
+            guard index >= 0, index < text.length, let scalar = Unicode.Scalar(text.character(at: index)) else {
+                return false
+            }
+            return CharacterSet.letters.contains(scalar)
+        }
+        func isHyphen(_ index: Int) -> Bool {
+            index >= 0 && index < text.length && hyphens.contains(text.character(at: index))
+        }
+        // Composing NFD text to NFC shrinks it to at most 1.5 UTF-16 units per byte, so a longer run exceeds
+        // Hunspell's limit; the cap keeps long hyphen chains from costing a full walk per flagged part.
+        let limit = 2 * HunspellDictionary.maxWordBytes
+        var start = range.location
+        var end = NSMaxRange(range)
+        while isHyphen(start - 1), isLetter(start - 2), end - start <= limit {
+            start -= 1
+            while isLetter(start - 1), end - start <= limit { start -= 1 }
+        }
+        while isHyphen(end), isLetter(end + 1), end - start <= limit {
+            end += 1
+            while isLetter(end), end - start <= limit { end += 1 }
+        }
+        if end - start > limit { return nil }
+        let compound = NSRange(location: start, length: end - start)
+        return compound == range ? nil : compound
     }
 
     // MARK: - Guesses
@@ -113,6 +166,8 @@ public final class BilingualSpeller {
         let context =
             explicitContext ?? rememberedContext(of: word)
             ?? WordContext(language: language(ofSentence: word), left: nil, right: nil)
+        // After the lookup: contexts are keyed by the word as flagged, soft hyphens included.
+        let word = word.removingSoftHyphens
         return ContextRanker.rank(word: word, candidates: candidates(for: word), context: context, models: models)
     }
 
@@ -187,8 +242,8 @@ public final class BilingualSpeller {
 
     /// Text views re-check the bare selected word before showing the menu; that must not
     /// overwrite the sentence context remembered from the full check.
-    private func remember(_ context: WordContext, for word: String) {
-        if context.left == nil, context.right == nil, rememberedContext(of: word) != nil { return }
+    private func remember(_ context: WordContext, for word: String, isBareWord: Bool) {
+        if isBareWord, rememberedContext(of: word) != nil { return }
         contextByWord[word] = context
     }
 
@@ -256,8 +311,11 @@ public final class BilingualSpeller {
             let restorations = isEnglish ? [] : czechRestorations(of: original)
             let forms = [token.word] + restorations.map { $0.lowercased() }
             let czechCount = forms.map(czechCount(of:)).max() ?? 0
+            let englishCount = english.count(token.word)
+            // A word neither corpus knows would only favour the smaller corpus through the smoothing.
+            guard czechCount > 0 || englishCount > 0 else { return ratio }
             let czechLog = log(Double(czechCount) + 0.5) - czechTotal
-            let englishLog = log(Double(english.count(token.word)) + 0.5) - englishTotal
+            let englishLog = log(Double(englishCount) + 0.5) - englishTotal
             return ratio + min(max(czechLog - englishLog, -Self.maxWordLanguageEvidence), Self.maxWordLanguageEvidence)
         }
     }

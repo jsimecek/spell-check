@@ -7,13 +7,21 @@ let defaultMinCount: UInt32 = 2
 
 let skipUnaccented = CommandLine.arguments.contains(skipUnaccentedFlag)
 let arguments = CommandLine.arguments.filter { $0 != skipUnaccentedFlag }
-guard arguments.count >= 3 else {
+func failWithUsage() -> Never {
     FileHandle.standardError.write(Data((usage + "\n").utf8))
     exit(2)
 }
+
+guard arguments.count >= 3 else { failWithUsage() }
 let inputPath = arguments[1]
 let outputPath = arguments[2]
-let minCount = arguments.count > 3 ? UInt32(arguments[3]) ?? defaultMinCount : defaultMinCount
+let minCount: UInt32
+if arguments.count > 3 {
+    guard let parsed = UInt32(arguments[3]) else { failWithUsage() }
+    minCount = parsed
+} else {
+    minCount = defaultMinCount
+}
 
 let text = try String(contentsOfFile: inputPath, encoding: .utf8)
 let data = NGramModel.build(

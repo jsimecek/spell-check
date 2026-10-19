@@ -50,6 +50,59 @@ import Testing
         #expect(flagged("I met Ted at the mall, no problem.").isEmpty)
     }
 
+    @Test func acceptsDottedCzechAbbreviations() {
+        #expect(flagged("Např. máme tzv. kancelář, atd.").isEmpty)
+        #expect(flagged("Ing. Jan Novák, tj. ředitel.").isEmpty)
+        #expect(flagged("Máme psy a kočky atd") == ["atd"])
+    }
+
+    @Test func acceptsCzechAbbreviationsInMixedText() {
+        #expect(flagged("Např. heslo k Wi-Fi a česko-německý slovník atd. vám pošle Ing. Novák.").isEmpty)
+        #expect(flagged("S pozdravem\nIng. Jan Novák").isEmpty)
+        #expect(flagged("Meeting is at 5. Např. zítra v 10 hod.").isEmpty)
+        #expect(flagged("Please contact Ing. Novák about the invoice.").isEmpty)
+        #expect(flagged("Kind regards, Ing. Jan Novák").isEmpty)
+    }
+
+    @Test func czechAbbreviationsDoNotHideEnglishTypos() {
+        #expect(flagged("I got your mal.") == ["mal"])
+        #expect(flagged("Thanks for the mal. Please reply.") == ["mal"])
+    }
+
+    @Test func sentenceEndDotDoesNotHideCzechTypos() {
+        #expect(flagged("To je dobrý nápad a ted.").contains("ted"))
+        let words = flagged("Nemam cas.")
+        #expect(words.contains("Nemam"))
+        #expect(words.contains("cas"))
+    }
+
+    @Test func acceptsHyphenatedCompounds() {
+        #expect(flagged("Heslo k Wi-Fi a česko-německý slovník.").isEmpty)
+        #expect(flagged("Connect to the Wi\u{2011}Fi network.").isEmpty)
+        #expect(flagged("Máme back-endový kód.").isEmpty)
+        #expect(flagged("Máme česko-německý slovník.".decomposedStringWithCanonicalMapping).isEmpty)
+    }
+
+    @Test func flagsPartsOfAnUnknownHyphenatedCompound() {
+        #expect(flagged("Heslo k Wi-Fo je na lednici.") == ["Wi"])
+        #expect(flagged("Mám česko-nemecký slovník.") == ["česko", "nemecký"])
+    }
+
+    @Test func ignoresSoftHyphens() {
+        let text = "Mám rád po\u{AD}slat zprávu."
+        #expect(flagged(text).isEmpty)
+        #expect(flagged("Mám rád po\u{AD}slta zprávu.") == ["po\u{AD}slta"])
+        #expect(speller.guesses(for: "po\u{AD}slta", context: Self.czech).contains("poslat"))
+    }
+
+    @Test func guessesForSoftHyphenatedWordsHaveNoSoftHyphens() {
+        _ = flagged("Jsem spokojeny s pra\u{AD}ci.")
+        let guesses = speller.guesses(for: "pra\u{AD}ci")
+        #expect(["prací", "práci"].contains(guesses.first))
+        #expect(guesses.allSatisfy { !$0.unicodeScalars.contains("\u{AD}") })
+        #expect(speller.guesses(for: "po\u{AD}slta", context: Self.czech).first == "poslat")
+    }
+
     @Test func flagsValidWordsWhoseAccentedFormFitsFarBetter() {
         let words = flagged("Nemam cas, zavolam ti zitra.")
         #expect(words.contains("Nemam"))
@@ -112,6 +165,12 @@ import Testing
         _ = speller.misspellings(in: "Jsem spokojeny s praci.")
         _ = speller.misspellings(in: "praci")  // text views re-check the selected word before showing the menu
         #expect(speller.guesses(for: "praci").first == "prací")
+    }
+
+    @Test func oneWordSentenceInLongerTextReplacesOlderContext() {
+        _ = speller.misspellings(in: "Jsem spokojeny s praci.")
+        _ = speller.misspellings(in: "Kde? praci? Ne.")
+        #expect(speller.guesses(for: "praci").first == "práci")
     }
 
     /// Distinct non-words ("qxjbbb", "qxjbbf", ...), enough to fill the remembered contexts.
@@ -177,6 +236,10 @@ import Testing
         #expect(speller.language(ofSentence: "Co delas?") == .czech)
         #expect(speller.language(ofSentence: "Deploy probehl.") == .czech)
         #expect(flagged("To je dobrej napad, kterej jsi mel, ted to vim.").contains("ted"))
+    }
+
+    @Test func wordsNeitherModelKnowsAreNoEvidenceForCzech() {
+        #expect(speller.language(ofSentence: "Zxqvt Qwxzy Plmokn Xcvbn Trewq") != .czech)
     }
 
     @Test func colloquialCzechGetsStandardForms() {
@@ -267,6 +330,14 @@ import Testing
         let start = Date()
         #expect(flagged("To je \(word) nápad.") == [word])
         _ = speller.guesses(for: word)
+        #expect(Date().timeIntervalSince(start) < 2)
+    }
+
+    @Test func longHyphenChainIsCheckedQuickly() {
+        // Each flagged part used to walk the whole chain, so 3000 parts took seconds.
+        let parts = Array(repeating: "xqz", count: 3000)
+        let start = Date()
+        #expect(flagged(parts.joined(separator: "-")) == parts)
         #expect(Date().timeIntervalSince(start) < 2)
     }
 

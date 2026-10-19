@@ -16,4 +16,9 @@ extension String {
     var hasDiacritics: Bool {
         folding(options: .diacriticInsensitive, locale: nil) != self
     }
+
+    /// Soft hyphens (U+00AD) are invisible break hints pasted from PDFs and web pages ("po\u{AD}slat").
+    var removingSoftHyphens: String {
+        unicodeScalars.contains("\u{AD}") ? replacingOccurrences(of: "\u{AD}", with: "") : self
+    }
 }

@@ -29,16 +29,20 @@ final class HunspellDictionary {
 
     deinit { Hunspell_destroy(handle) }
 
-    // Hunspell compares raw bytes and the dictionaries are NFC, so decomposed input must be composed first.
     func isCorrect(_ word: String) -> Bool {
-        Hunspell_spell(handle, word.precomposedStringWithCanonicalMapping) != 0
+        Hunspell_spell(handle, Self.lookupForm(of: word)) != 0
     }
 
     func suggestions(for word: String) -> [String] {
         var list: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?
-        let count = Hunspell_suggest(handle, &list, word.precomposedStringWithCanonicalMapping)
+        let count = Hunspell_suggest(handle, &list, Self.lookupForm(of: word))
         defer { Hunspell_free_list(handle, &list, count) }
         guard let list, count > 0 else { return [] }
         return (0..<Int(count)).compactMap { list[$0].map { String(cString: $0) } }
+    }
+
+    // Hunspell compares raw bytes and the dictionaries are NFC without soft hyphens (pasted "po\u{AD}slat").
+    private static func lookupForm(of word: String) -> String {
+        word.removingSoftHyphens.precomposedStringWithCanonicalMapping
     }
 }

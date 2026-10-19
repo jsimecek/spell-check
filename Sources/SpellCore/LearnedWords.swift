@@ -29,17 +29,17 @@ public final class LearnedWords {
         readOnlyWords = sourceWords.subtracting(forgottenWords)
     }
 
-    public var all: Set<String> { ownWords.union(readOnlyWords) }
+    var all: Set<String> { ownWords.union(readOnlyWords) }
 
     /// Like Hunspell, a word learned in lowercase is also accepted with an initial capital, not the reverse.
-    public func contains(_ word: String) -> Bool {
+    func contains(_ word: String) -> Bool {
         if isLearned(word) { return true }
         let uncapitalized = word.lowercasingFirstLetter()
         return uncapitalized != word && isLearned(uncapitalized)
     }
 
     /// Ignores words that cannot be stored as one plain line, so callers cannot inject or forget other words.
-    public func add(_ word: String) throws {
+    func add(_ word: String) throws {
         guard !word.isEmpty, !word.hasPrefix(Self.forgottenMarker), !word.contains(where: \.isNewline) else { return }
         let isNew = ownWords.insert(word).inserted
         let wasForgotten = forgottenWords.remove(word) != nil
@@ -48,7 +48,7 @@ public final class LearnedWords {
     }
 
     /// Forgetting "Foo" forgets the learned "foo" that made it acceptable.
-    public func remove(_ word: String) throws {
+    func remove(_ word: String) throws {
         var changed = false
         for form in Set([word, word.lowercasingFirstLetter()]) {
             if ownWords.remove(form) != nil { changed = true }

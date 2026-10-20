@@ -6,13 +6,13 @@ Czech + English spell checking for macOS, as a native system spell service. It a
 
 On macOS 27 the built-in checker underlines Czech words but often offers no suggestions. Apple's Czech dictionary is fine (`scripts/probe.sh cs`); the problem is automatic language detection. Czech typed without accents is often detected as `und` (undetermined), and then no dictionary offers suggestions. Output of `scripts/probe.sh auto` vs `scripts/probe.sh mul` on macOS 27.0.1 with English and Czech enabled:
 
-| Input | Native "Automatic by Language" | CzEnSpell |
-|---|---|---|
-| `Ahoj, prosim te muzes mi to poslat?` | `und`: 3 words underlined, no suggestions | `prosím`, `tě`, `můžeš` |
-| `Zitra pujdeme do kina s kamarady.` | `und`: 3 words underlined, no suggestions | `Zítra`, `půjdeme`, `kamarády` |
-| `To je dobrej napad, kterej jsi mel, ted to vim.` | `und`: 6 words underlined, no suggestions | `dobrý`, `nápad`, `který`, `měl` |
+| Input                                 | Native "Automatic by Language"            | CzEnSpell                        |
+| ------------------------------------- | ----------------------------------------- | -------------------------------- |
+| `Ahoj, prosim te muzes mi to poslat?` | `und`: 3 words underlined, no suggestions | `prosím`, `tě`, `můžeš`          |
+| `Zitra pujdeme do kina s kamarady.`   | `und`: 3 words underlined, no suggestions | `Zítra`, `půjdeme`, `kamarády`   |
+| `To je dobrej napad, kterej jsi mel.` | `und`: 4 words underlined, no suggestions | `dobrý`, `nápad`, `který`, `měl` |
 
-With many languages enabled it gets worse: in earlier runs with about 34 languages, some misspellings (`teh`, `nevim`) were not underlined at all.
+With many languages enabled it gets worse: in earlier runs with the default 34 languages, some misspellings (`teh`, `nevim`) were not underlined at all.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ Then set **Spelling** back to **Automatic by Language** in the same settings she
 - A word is correct if the Czech or the English Hunspell dictionary accepts it. In Czech text, an English-only word with a valid accented Czech form (`ted`, `vim`, `problem`) is still flagged.
 - Each sentence is classified as Czech or English by how common its words are in each language (Czech typed without accents counts as its accented form), with Apple's `NLLanguageRecognizer` as the tie-breaker.
 - Suggestions come from Hunspell, accent restoration (`muzes` → `můžeš`), standard forms of spoken Czech (`kterej` → `který`), near-miss common words, and Apple's own cs/en dictionaries (asked by a helper process, because Apple's checker stalls when called from inside a spell service).
-- A word-pair model built from the Leipzig corpora ranks suggestions by how well they fit between the neighbouring words, so `prosim te` suggests `tě` and `mam praci` suggests `práci`.
+- A word-pair model built from the Leipzig corpora ranks suggestions by how well they fit between the neighbouring words, so `prosim te` suggests `prosím tě` and `mam praci` suggests `mám práci`.
 - Typical slips cost less than random edits: a left-out accent is free, an accent you typed counts, and i/y, the y/z keyboard-layout swap, doubled letters and swapped letters are cheap.
 - In Czech sentences, a valid word that is missing accents is flagged when the accented form fits much better (`Nemam cas` → `Nemám čas`). A rare correct word is occasionally flagged; that is the accepted trade-off.
 - At most 5 suggestions. It only underlines and suggests, it never replaces text on its own.

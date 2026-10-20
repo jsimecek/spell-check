@@ -1,0 +1,64 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spell-check}",
+      "name": "Debug CzEnSpellServer",
+      "target": "CzEnSpellServer",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug CzEnSpellServer"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spell-check}",
+      "name": "Release CzEnSpellServer",
+      "target": "CzEnSpellServer",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release CzEnSpellServer"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spell-check}",
+      "name": "Debug spellprobe",
+      "target": "spellprobe",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug spellprobe"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spell-check}",
+      "name": "Release spellprobe",
+      "target": "spellprobe",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release spellprobe"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spell-check}",
+      "name": "Debug ngram-build",
+      "target": "ngram-build",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug ngram-build"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spell-check}",
+      "name": "Release ngram-build",
+      "target": "ngram-build",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release ngram-build"
+    }
+  ]
+}
